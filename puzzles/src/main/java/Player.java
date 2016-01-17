@@ -7,8 +7,8 @@ import java.math.*;
  **/
 class Player {
     
-    private int width;
-    private int height;
+    private static int width;
+    private static int height;
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
@@ -34,7 +34,7 @@ class Player {
         private final Integer[][] data = new Integer[width * height][width * height];
         
         private final int[] freeInRows = new int[height];
-        private final int[] freeInColumns = new int[weight];
+        private final int[] freeInColumns = new int[width];
         
         public Matrix(String[] lines) {
             for (int l = 0; l < height; l++) {

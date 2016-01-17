@@ -1,1 +1,23 @@
- 
+*.class
+*.*~
+*.log
+
+# Package Files #
+# *.jar # Cardboard SDK
+*.war
+*.ear
+*.iml
+*.ipr
+*.iws
+*.so
+.classpath
+.project
+.settings/
+.gradle/
+.idea/
+build/
+bin/
+out/
+gen/
+local.properties
+!gradle/
