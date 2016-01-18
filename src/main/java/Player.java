@@ -29,13 +29,11 @@ class Player {
         // Write an action using System.out.println()
         // To debug: System.err.println("Debug messages...");
 
-        String[] answers = new String[4];
+        String[] answers = new String[2];
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                answers[0] = matrix.getNeighbor(x, y, x, y - 1);
-                answers[1] = matrix.getNeighbor(x, y, x + 1, y);
-                answers[2] = matrix.getNeighbor(x, y, x, y + 1);
-                answers[3] = matrix.getNeighbor(x, y, x - 1, y);
+                answers[0] = matrix.getNeighbor(x, y, x + 1, y);
+                answers[1] = matrix.getNeighbor(x, y, x, y + 1);
                 for (String answer : answers) {
                     if (answer != null) {
                         System.out.println(answer); // Two coordinates and one integer: a node, one of its neighbors, the number of links connecting them.
@@ -59,8 +57,8 @@ class Player {
         
         private final Integer[][] data = new Integer[countNodes][countNodes];
         
-        private final int[] freeInRows = new int[height];
-        private final int[] freeInColumns = new int[width];
+        private final int[] freeInRows = new int[countNodes];
+        private final int[] freeInColumns = new int[countNodes];
         
         public Matrix(String[] lines) {
             for (int l = 0; l < height; l++) {
@@ -78,25 +76,15 @@ class Player {
 
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    if (y > 0 && data[cn(x, y - 1)][cn(x, y - 1)] != null) {
-                        data[cn(x, y)][cn(x, y - 1)] = 0;
-                        freeInColumns[cn(x, y)]++;
-                        freeInRows[cn(x, y - 1)]++;
-                    }
                     if (x < width - 1 && data[cn(x + 1, y)][cn(x + 1, y)] != null) {
-                        data[cn(x, y)][cn(x + 1, y)] = 0;
-                        freeInColumns[cn(x, y)]++;
-                        freeInRows[cn(x + 1, y)]++;
+                        setWeight(cn(x, y), cn(x + 1, y), 0);
+                        freeInColumns[cn(x, y)] += 2;
+                        freeInRows[cn(x + 1, y)] += 2;
                     }
                     if (y < height - 1 && data[cn(x, y + 1)][cn(x, y + 1)] != null) {
-                        data[cn(x, y)][cn(x, y + 1)] = 0;
-                        freeInColumns[cn(x, y)]++;
-                        freeInRows[cn(x, y + 1)]++;
-                    }
-                    if (x > 0 && data[cn(x - 1, y)][cn(x - 1, y)] != null) {
-                        data[cn(x, y)][cn(x - 1, y)] = 0;
-                        freeInColumns[cn(x, y)]++;
-                        freeInRows[cn(x - 1, y)]++;
+                        setWeight(cn(x, y), cn(x, y + 1), 0);
+                        freeInColumns[cn(x, y)] += 2;
+                        freeInRows[cn(x, y + 1)] += 2;
                     }
                 }
             }
@@ -111,38 +99,78 @@ class Player {
                 return null;
             }
 
-            Integer value = data[cn(sX, sY)][cn(tX, tY)];
+            Integer value = getWeight(sX, sY, tX, tY);
 
             if (value == null || value == 0) {
                 return null;
             }
 
-            return sX + " " + sY + " " + tX + " " + tY + " 1";
+            return sX + " " + sY + " " + tX + " " + tY + " " + value;
+        }
+
+        private Integer getWeight(int x1, int y1, int x2, int y2) {
+            int n1 = cn(x1, y1);
+            int n2 = cn(x2, y2);
+            return getWeight(n1, n2);
+        }
+
+        private Integer getWeight(int node1, int node2) {
+            return node1 > node2 ? data[node1][node2] : data[node2][node1];
         }
 
         public boolean distributeIsPossible(int node) {
-            if (data[node][node] != freeInColumns[node] + freeInRows[node]) {
+            final Integer valueOfNode = data[node][node];
+            if (valueOfNode == null || valueOfNode == 0) {
                 return false;
             }
 
-            for (int i = 0; i < width; i++) {
-                if (data[i][node] != null && data[i][node] == 0) {
-                    data[i][node] = 1;
+            if (valueOfNode != freeInColumns[node] + freeInRows[node]) {
+                //single point?
+                if (valueOfNode == 1) {
+                    int count = 0;
+                    for (int i = node + 1; i < countNodes; i++) {
+                        Integer weight = getWeight(i, node);
+                        if (weight != null && weight < 2) {
+                            count++;
+                            if (count > 1) {
+                                return false;
+                            }
+                        }
+                    }
+                } else {
+                    return false;
                 }
             }
 
-            for (int i = 0; i < height; i++) {
-                if (data[node][i] != null && data[node][i] == 0) {
-                    data[node][i] = 1;
+            for (int i = 0; i < countNodes; i++) {
+                if (i != node) {
+                    Integer weight = getWeight(i, node);
+                    if (weight != null && weight < 2) {
+                        distribute(i, node, Math.min(data[node][node], 2 - weight));
+                        if (data[node][node] == 0) {
+                            break;
+                        }
+                    }
                 }
             }
-
-            data[node][node] = 0;
-
-            freeInColumns[node] = 0;
-            freeInRows[node] = 0;
 
             return true;
+        }
+
+        private void distribute(int tX, int tY, int weight) {
+            setWeight(tX, tY, getWeight(tX, tY) + weight);
+            freeInRows[tY] -= weight;
+            freeInColumns[tX] -= weight;
+            data[tX][tX] -= weight;
+            data[tY][tY] -=weight;
+        }
+
+        private void setWeight(int node1, int node2, int weight) {
+            if (node1 > node2) {
+                data[node1][node2] = weight;
+            } else {
+                data[node2][node1] = weight;
+            }
         }
     }
 }
