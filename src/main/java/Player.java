@@ -15,12 +15,14 @@ class Player {
         Scanner in = new Scanner(System.in);
         width = in.nextInt(); // the number of cells on the X axis
         height = in.nextInt(); // the number of cells on the Y axis
+        System.err.println("width=" + width + ", height=" + height);
         countNodes = width * height;
         String[] lines = new String[height];
         in.nextLine();
         for (int i = 0; i < height; i++) {
             String line = in.nextLine(); // width characters, each either a number or a '.'
             lines[i] = line;
+            System.err.println(line);
         }
         
         matrix = new Matrix(lines);
