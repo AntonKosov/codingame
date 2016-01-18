@@ -31,17 +31,9 @@ class Player {
         // Write an action using System.out.println()
         // To debug: System.err.println("Debug messages...");
 
-        String[] answers = new String[2];
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                answers[0] = matrix.getNeighbor(x, y, x + 1, y);
-                answers[1] = matrix.getNeighbor(x, y, x, y + 1);
-                for (String answer : answers) {
-                    if (answer != null) {
-                        System.out.println(answer); // Two coordinates and one integer: a node, one of its neighbors, the number of links connecting them.
-                    }
-                }
-            }
+        ArrayList<String> answers = matrix.getLinks();
+        for (String answer : answers) {
+            System.out.println(answer); // Two coordinates and one integer: a node, one of its neighbors, the number of links connecting them.
         }
     }
 
@@ -63,6 +55,8 @@ class Player {
         private final int[] freeInColumns = new int[countNodes];
         
         public Matrix(String[] lines) {
+            boolean[][] field = new boolean[width][height];
+
             for (int l = 0; l < height; l++) {
                 String line = lines[l];
                 for (int c = 0; c < width; c++) {
@@ -73,20 +67,29 @@ class Player {
                     int nodeIndex = cn(c, l);
                     int val = Character.getNumericValue(ch);
                     data[nodeIndex][nodeIndex] = val;
+                    field[c][l] = true;
                 }
             }
 
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    if (x < width - 1 && data[cn(x + 1, y)][cn(x + 1, y)] != null) {
-                        setWeight(cn(x, y), cn(x + 1, y), 0);
-                        freeInColumns[cn(x, y)] += 2;
-                        freeInRows[cn(x + 1, y)] += 2;
-                    }
-                    if (y < height - 1 && data[cn(x, y + 1)][cn(x, y + 1)] != null) {
-                        setWeight(cn(x, y), cn(x, y + 1), 0);
-                        freeInColumns[cn(x, y)] += 2;
-                        freeInRows[cn(x, y + 1)] += 2;
+                    if (field[x][y]) {
+                        for (int i = x - 1; i >= 0; i--) {
+                            if (field[i][y]) {
+                                setWeight(cn(x, y), cn(i, y), 0);
+                                freeInColumns[cn(x, y)] += 2;
+                                freeInRows[cn(i, y)] += 2;
+                                break;
+                            }
+                        }
+                        for (int i = y - 1; i >= 0; i--) {
+                            if (field[x][i]) {
+                                setWeight(cn(x, y), cn(x, i), 0);
+                                freeInColumns[cn(x, y)] += 2;
+                                freeInRows[cn(x, i)] += 2;
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -96,18 +99,23 @@ class Player {
             return y * height + x;
         }
 
-        public String getNeighbor(int sX, int sY, int tX, int tY) {
-            if (tX < 0 || tX > width - 1 || tY < 0 || tY > height - 1) {
-                return null;
+        public ArrayList<String> getLinks() {
+            ArrayList<String> result = new ArrayList<String>();
+
+            for (int y = 0; y < countNodes; y++) {
+                for (int x = y + 1; x < countNodes; x++) {
+                    Integer weight = data[x][y];
+                    if (weight != null) {
+                        int n1y = y / height;
+                        int n1x = y % width;
+                        int n2y = x / height;
+                        int n2x = x % width;
+                        result.add(n1x + " " + n1y + " " + n2x + " " + n2y + " " + weight);
+                    }
+                }
             }
 
-            Integer value = getWeight(sX, sY, tX, tY);
-
-            if (value == null || value == 0) {
-                return null;
-            }
-
-            return sX + " " + sY + " " + tX + " " + tY + " " + value;
+            return result;
         }
 
         private Integer getWeight(int x1, int y1, int x2, int y2) {
@@ -130,12 +138,14 @@ class Player {
                 //single point?
                 if (valueOfNode == 1) {
                     int count = 0;
-                    for (int i = node + 1; i < countNodes; i++) {
-                        Integer weight = getWeight(i, node);
-                        if (weight != null && weight < 2) {
-                            count++;
-                            if (count > 1) {
-                                return false;
+                    for (int i = 0; i < countNodes; i++) {
+                        if (i != node) {
+                            Integer weight = getWeight(i, node);
+                            if (weight != null && weight < 2) {
+                                count++;
+                                if (count > 1) {
+                                    return false;
+                                }
                             }
                         }
                     }

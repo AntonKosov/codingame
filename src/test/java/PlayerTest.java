@@ -24,7 +24,9 @@ public class PlayerTest {
         System.out.flush();
         String answer = stream.toString();
 
-        Assert.assertEquals("", answer);
+        Assert.assertEquals(
+                "0 0 2 0 1\n" +
+                "2 0 2 2 1\n", answer);
     }
 
 //    @Test
