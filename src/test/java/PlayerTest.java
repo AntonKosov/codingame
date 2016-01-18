@@ -6,13 +6,23 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
 public class PlayerTest {
-    
+
     @Test
     public void simplest() {
         startTest(3, 3,
                 "1.2\n" +
                 "...\n" +
                 "..1\n",
+                "0 0 2 0 1\n" +
+                "2 0 2 2 1\n");
+    }
+
+    @Test
+    public void simple() {
+        startTest(3, 3,
+                "1.3\n" +
+                "...\n" +
+                "123\n",
                 "0 0 2 0 1\n" +
                 "2 0 2 2 1\n");
     }
