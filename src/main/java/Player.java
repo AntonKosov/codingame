@@ -43,8 +43,9 @@ class Player {
     }
 
     private static void lookingSolutions() {
-        final int startStakSize = stack.size();
+        final int startStackSize = stack.size();
 
+        // exact solutions
         boolean isRepeat = true;
         while (isRepeat) {
             isRepeat = false;
@@ -54,7 +55,31 @@ class Player {
         }
 
         if (!matrix.isSolved()) {
-            while (stack.size() > startStakSize) {
+            // brute force
+            //todo sort by free points?
+            for (int i = 0; i < countNodes; i++) {
+                Integer weight = matrix.getWeightOfNode(i);
+                if (weight != null && weight > 0) {
+                    final ArrayList<Point> possiblePoints = matrix.getPossiblePoints(i);
+                    for (Point pp : possiblePoints) {
+                        final State state = matrix.distribute(pp);
+                        if (state.isNoSolution) {
+                            matrix.restore(state);
+                            continue;
+                        }
+                        stack.push(state);
+                        lookingSolutions();
+                        if (matrix.isSolved()) break;
+                        matrix.restore(stack.pop());
+                    }
+
+                    if (matrix.isSolved()) break;
+                }
+            }
+        }
+
+        if (!matrix.isSolved()) {
+            while (stack.size() > startStackSize) {
                 matrix.restore(stack.pop());
             }
         }
@@ -125,7 +150,7 @@ class Player {
             for (int y = 0; y < countNodes; y++) {
                 for (int x = y + 1; x < countNodes; x++) {
                     Integer weight = data[x][y];
-                    if (weight != null) {
+                    if (weight != null && weight > 0) {
                         int n1y = y / height;
                         int n1x = y % width;
                         int n2y = x / height;
@@ -138,14 +163,37 @@ class Player {
             return result;
         }
 
+/*
         private Integer getWeight(int x1, int y1, int x2, int y2) {
             int n1 = cn(x1, y1);
             int n2 = cn(x2, y2);
             return getWeight(n1, n2);
         }
+*/
 
         private Integer getWeight(int node1, int node2) {
             return node1 > node2 ? data[node1][node2] : data[node2][node1];
+        }
+
+        public ArrayList<Point> getPossiblePoints(int node) {
+            ArrayList<Point> result = new ArrayList<Point>();
+            for (int y = 0; y < node; y++) {
+                Integer v = data[node][y];
+                if (v != null && v > 0) {
+                    result.add(new Point(node, y));
+                }
+            }
+            for (int x = node + 1; x < countNodes; x++) {
+                Integer v = data[x][node];
+                if (v != null && v < 2) {
+                    result.add(new Point(x, node));
+                }
+            }
+            return result;
+        }
+
+        public Integer getWeightOfNode(int node) {
+            return data[node][node];
         }
 
         public boolean distributeIsPossible(int node) {
@@ -198,6 +246,10 @@ class Player {
             return stack.size() > startStackSize;
         }
 
+        public State distribute(Point point) {
+            return distribute(point.x, point.y, 1);
+        }
+
         private State distribute(int x, int y, int value) {
             setWeight(x, y, getWeight(x, y) + value);
             freeInRows[y] -= value;
@@ -211,7 +263,11 @@ class Player {
                 countFullNodes--;
             }
 
-            boolean isNoSolution = data[x][x] > freeInColumns[x] + freeInRows[x] || data[y][y] > freeInColumns[y] + freeInRows[y];
+            boolean isNoSolution =
+                    data[x][x] < 0 ||
+                    data[y][y] < 0 ||
+                    data[x][x] > freeInColumns[x] + freeInRows[x] ||
+                    data[y][y] > freeInColumns[y] + freeInRows[y];
             return new State(x, y, value, isNoSolution);
         }
 
@@ -250,6 +306,26 @@ class Player {
             this.y = y;
             this.value = value;
             this.isNoSolution = isNoSolution;
+        }
+
+        @Override
+        public String toString() {
+            return "(" + x + ", " + y + "), v=" + value + ", ins=" + isNoSolution;
+        }
+    }
+
+    private static class Point {
+        public final int x;
+        public final int y;
+
+        public Point(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        @Override
+        public String toString() {
+            return "(" + x + ", " + y + ")";
         }
     }
 }

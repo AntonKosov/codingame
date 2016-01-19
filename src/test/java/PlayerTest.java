@@ -24,7 +24,9 @@ public class PlayerTest {
                 "...\n" +
                 "123\n",
                 "0 0 2 0 1\n" +
-                "2 0 2 2 1\n");
+                "2 0 2 2 2\n" +
+                "0 2 1 2 1\n" +
+                "1 2 2 2 1\n");
     }
 
     private void startTest(int width, int height, String in, String answer) {
