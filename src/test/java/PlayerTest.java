@@ -35,7 +35,11 @@ public class PlayerTest {
                 "14.3\n" +
                 "....\n" +
                 ".4.4\n",
-                "1 0 3 1 1\n");
+                "0 0 1 0 1\n" +
+                "1 0 3 0 1\n" +
+                "1 0 1 2 2\n" +
+                "3 0 3 2 2\n" +
+                "1 2 3 2 2\n");
     }
 
     private void startTest(int width, int height, String in, String answer) {

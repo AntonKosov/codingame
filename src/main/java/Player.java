@@ -149,7 +149,7 @@ class Player {
         }
         
         private static int cn(int x, int y) {
-            return y * height + x;
+            return y * width + x;
         }
 
         public ArrayList<String> getLinks() {
@@ -159,9 +159,9 @@ class Player {
                 for (int x = y + 1; x < countNodes; x++) {
                     Integer weight = data[x][y];
                     if (weight != null && weight > 0) {
-                        int n1y = y / height;
+                        int n1y = y / width;
                         int n1x = y % width;
-                        int n2y = x / height;
+                        int n2y = x / width;
                         int n2x = x % width;
                         result.add(n1x + " " + n1y + " " + n2x + " " + n2y + " " + weight);
                     }
@@ -239,9 +239,9 @@ class Player {
                         final State state = distribute(i, node, Math.min(data[node][node], 2 - weight));
                         if (state.isNoSolution) {
                             restore(state);
-                            while (stack.size() > startStackSize) {
-                                restore(stack.pop());
-                            }
+//                            while (stack.size() > startStackSize) {
+//                                restore(stack.pop());
+//                            }
                         }
                         stack.push(state);
                         if (data[node][node] == 0) {
