@@ -29,6 +29,15 @@ public class PlayerTest {
                 "1 2 2 2 1\n");
     }
 
+    @Test
+    public void basic() {
+        startTest(4, 3,
+                "14.3\n" +
+                "....\n" +
+                ".4.4\n",
+                "1 0 3 1 1\n");
+    }
+
     private void startTest(int width, int height, String in, String answer) {
         String data = width + "\n" + height + "\n" + in;
         System.setIn(new ByteArrayInputStream(data.getBytes()));

@@ -61,18 +61,7 @@ class Player {
                 Integer weight = matrix.getWeightOfNode(i);
                 if (weight != null && weight > 0) {
                     final ArrayList<Point> possiblePoints = matrix.getPossiblePoints(i);
-                    for (Point pp : possiblePoints) {
-                        final State state = matrix.distribute(pp);
-                        if (state.isNoSolution) {
-                            matrix.restore(state);
-                            continue;
-                        }
-                        stack.push(state);
-                        lookingSolutions();
-                        if (matrix.isSolved()) break;
-                        matrix.restore(stack.pop());
-                    }
-
+                    distribute(i, possiblePoints, 0);
                     if (matrix.isSolved()) break;
                 }
             }
@@ -80,6 +69,25 @@ class Player {
 
         if (!matrix.isSolved()) {
             while (stack.size() > startStackSize) {
+                matrix.restore(stack.pop());
+            }
+        }
+    }
+
+    private static void distribute(int node, ArrayList<Point> possiblePoints, int startPoint) {
+        Integer weight = matrix.getWeightOfNode(node);
+        if (weight == 0) {
+            lookingSolutions();
+        } else {
+            for (int i = startPoint; i < possiblePoints.size(); i++) {
+                final State state = matrix.distribute(possiblePoints.get(i));
+                if (state.isNoSolution) {
+                    matrix.restore(state);
+                    continue;
+                }
+                stack.push(state);
+                distribute(node, possiblePoints, i);
+                if (matrix.isSolved()) break;
                 matrix.restore(stack.pop());
             }
         }
