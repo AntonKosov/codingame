@@ -42,6 +42,27 @@ public class PlayerTest {
                 "1 2 3 2 2\n");
     }
 
+    @Test
+    public void intermediate2() {
+        startTest(7, 5,
+                "2..2.1.\n" +
+                ".3..5.3\n" +
+                ".2.1...\n" +
+                "2...2..\n" +
+                ".1....2\n",
+                "0 0 3 0 1\n" +
+                "0 0 0 3 1\n" +
+                "3 0 5 0 1\n" +
+                "1 1 4 1 2\n" +
+                "1 1 1 2 1\n" +
+                "4 1 6 1 2\n" +
+                "4 1 4 3 1\n" +
+                "6 1 6 4 1\n" +
+                "1 2 3 2 1\n" +
+                "0 3 4 3 1\n" +
+                "1 4 6 4 1\n");
+    }
+
     private void startTest(int width, int height, String in, String answer) {
         String data = width + "\n" + height + "\n" + in;
         System.setIn(new ByteArrayInputStream(data.getBytes()));

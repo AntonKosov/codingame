@@ -80,15 +80,19 @@ class Player {
             lookingSolutions();
         } else {
             for (int i = startPoint; i < possiblePoints.size(); i++) {
-                final State state = matrix.distribute(possiblePoints.get(i));
-                if (state.isNoSolution) {
-                    matrix.restore(state);
-                    continue;
+                final Point point = possiblePoints.get(i);
+                Integer v = matrix.getWeightOfPoint(point);
+                if (v != null && v < 2) {
+                    final State state = matrix.distribute(point);
+                    if (state.isNoSolution) {
+                        matrix.restore(state);
+                        continue;
+                    }
+                    stack.push(state);
+                    distribute(node, possiblePoints, i);
+                    if (matrix.isSolved()) break;
+                    matrix.restore(stack.pop());
                 }
-                stack.push(state);
-                distribute(node, possiblePoints, i);
-                if (matrix.isSolved()) break;
-                matrix.restore(stack.pop());
             }
         }
     }
@@ -202,6 +206,10 @@ class Player {
 
         public Integer getWeightOfNode(int node) {
             return data[node][node];
+        }
+
+        public Integer getWeightOfPoint(Point point) {
+            return data[point.x][point.y];
         }
 
         public boolean distributeIsPossible(int node) {
