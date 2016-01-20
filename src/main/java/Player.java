@@ -247,13 +247,11 @@ class Player {
                         final State state = distribute(i, node, Math.min(data[node][node], 2 - weight));
                         if (state.isNoSolution) {
                             restore(state);
-//                            while (stack.size() > startStackSize) {
-//                                restore(stack.pop());
-//                            }
-                        }
-                        stack.push(state);
-                        if (data[node][node] == 0) {
-                            break;
+                        } else {
+                            stack.push(state);
+                            if (data[node][node] == 0) {
+                                break;
+                            }
                         }
                     }
                 }
@@ -268,8 +266,14 @@ class Player {
 
         private State distribute(int x, int y, int value) {
             setWeight(x, y, getWeight(x, y) + value);
-            freeInRows[y] -= value;
-            freeInColumns[x] -= value;
+            int realX = x;
+            int realY = y;
+            if (x < y) {
+                realX = y;
+                realY = x;
+            }
+            freeInRows[realY] -= value;
+            freeInColumns[realX] -= value;
             data[x][x] -= value;
             data[y][y] -= value;
             if (data[x][x] == 0) {
@@ -301,11 +305,11 @@ class Player {
             data[state.y][state.y] += state.value;
         }
 
-        private void setWeight(int node1, int node2, int weight) {
-            if (node1 > node2) {
-                data[node1][node2] = weight;
+        private void setWeight(int x, int y, int weight) {
+            if (x > y) {
+                data[x][y] = weight;
             } else {
-                data[node2][node1] = weight;
+                data[y][x] = weight;
             }
         }
     }
