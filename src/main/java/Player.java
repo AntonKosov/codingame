@@ -8,13 +8,15 @@ class Player {
     private static int width;
     private static int height;
     private static int countNodes;
-    private static int countActiveNodes = 0;
+    private static int countActiveNodes;
 
     private static Matrix matrix;
 
-    private static final Stack<State> stack = new Stack<State>();
+    private static Stack<State> stack;
 
     public static void main(String args[]) {
+        countActiveNodes = 0;
+        stack = new Stack<State>();
         Scanner in = new Scanner(System.in);
         width = in.nextInt(); // the number of cells on the X axis
         height = in.nextInt(); // the number of cells on the Y axis
