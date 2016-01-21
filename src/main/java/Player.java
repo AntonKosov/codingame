@@ -8,6 +8,7 @@ class Player {
     private static int width;
     private static int height;
     private static int countNodes;
+    private static int countActiveNodes = 0;
 
     private static Matrix matrix;
 
@@ -104,11 +105,14 @@ class Player {
         private final int[] freeInRows = new int[countNodes];
         private final int[] freeInColumns = new int[countNodes];
 
+        private final int maxDoubleLinks;
+
         private int countFullNodes = 0;
-        
+        private int countDoubleLinks = 0;
+
         public Matrix(String[] lines) {
             boolean[][] field = new boolean[width][height];
-
+            int summ = 0;
             for (int l = 0; l < height; l++) {
                 String line = lines[l];
                 for (int c = 0; c < width; c++) {
@@ -116,13 +120,17 @@ class Player {
                     if (ch == '.') {
                         continue;
                     }
+                    countActiveNodes++;
                     int nodeIndex = cn(c, l);
                     int val = Character.getNumericValue(ch);
                     data[nodeIndex][nodeIndex] = val;
                     field[c][l] = true;
                     countFullNodes++;
+                    summ += val;
                 }
             }
+
+            maxDoubleLinks = summ - 2 * (countActiveNodes - 1);
 
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
@@ -149,7 +157,15 @@ class Player {
         }
 
         public boolean isSolved() {
-            return countFullNodes == 0;
+            if (countFullNodes > 0) return false;
+            final int c = countLinks();
+            if (c < countActiveNodes - 1) {
+                System.err.println("isSolved: " + c + "/" + countActiveNodes);
+                return false;
+            }
+
+            //c >= (countActiveNodes * countActiveNodes - 3 * countActiveNodes + 4) / 2;
+            return true;
         }
         
         private static int cn(int x, int y) {
@@ -168,6 +184,22 @@ class Player {
                         int n2y = x / width;
                         int n2x = x % width;
                         result.add(n1x + " " + n1y + " " + n2x + " " + n2y + " " + weight);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        //todo optimization
+        private int countLinks() {
+            int result = 0;
+
+            for (int y = 0; y < countNodes; y++) {
+                for (int x = y + 1; x < countNodes; x++) {
+                    Integer weight = data[x][y];
+                    if (weight != null && weight > 0) {
+                        result++;
                     }
                 }
             }
@@ -265,7 +297,8 @@ class Player {
         }
 
         private State distribute(int x, int y, int value) {
-            setWeight(x, y, getWeight(x, y) + value);
+            final int newValue = getWeight(x, y) + value;
+            setWeight(x, y, newValue);
             int realX = x;
             int realY = y;
             if (x < y) {
@@ -283,7 +316,12 @@ class Player {
                 countFullNodes--;
             }
 
+            if (newValue == 2) {
+                countDoubleLinks++;
+            }
+
             boolean isNoSolution =
+                    countDoubleLinks > maxDoubleLinks ||
                     data[x][x] < 0 ||
                     data[y][y] < 0 ||
                     data[x][x] > freeInColumns[x] + freeInRows[x] ||
@@ -292,7 +330,11 @@ class Player {
         }
 
         private void restore(State state) {
-            setWeight(state.x, state.y, getWeight(state.x, state.y) - state.value);
+            final Integer oldValue = getWeight(state.x, state.y);
+            if (oldValue == 2) {
+                countDoubleLinks--;
+            }
+            setWeight(state.x, state.y, oldValue - state.value);
             freeInRows[state.y] += state.value;
             freeInColumns[state.x] += state.value;
             if (data[state.x][state.x] == 0) {
