@@ -7,10 +7,9 @@ class Player {
     
     private static int width;
     private static int height;
-    private static int countNodes;
     private static int countActiveNodes;
 
-    private static Matrix matrix;
+    private static Map map;
 
     private static Stack<State> stack;
 
@@ -21,7 +20,7 @@ class Player {
         width = in.nextInt(); // the number of cells on the X axis
         height = in.nextInt(); // the number of cells on the Y axis
         System.err.println("width=" + width + ", height=" + height);
-        countNodes = width * height;
+//        countNodes = width * height;
         String[] lines = new String[height];
         in.nextLine();
         for (int i = 0; i < height; i++) {
@@ -30,13 +29,13 @@ class Player {
             System.err.println(line);
         }
         
-        matrix = new Matrix(lines);
+        map = new Map(lines);
         lookingSolutions();
-        if (matrix.isSolved()) {
+        if (map.isSolved()) {
             // Write an action using System.out.println()
             // To debug: System.err.println("Debug messages...");
 
-            ArrayList<String> answers = matrix.getLinks();
+            ArrayList<String> answers = map.getLinks();
             for (String answer : answers) {
                 System.out.println(answer); // Two coordinates and one integer: a node, one of its neighbors, the number of links connecting them.
             }
@@ -52,114 +51,117 @@ class Player {
         boolean isRepeat = true;
         while (isRepeat) {
             isRepeat = false;
-            for (int i = 0; i < countNodes; i++) {
-                isRepeat |= matrix.distributeIsPossible(i);
-            }
-        }
 
-        if (!matrix.isSolved()) {
-            // brute force
-            //todo sort by free points?
-            for (int i = 0; i < countNodes; i++) {
-                Integer weight = matrix.getWeightOfNode(i);
-                if (weight != null && weight > 0) {
-                    final ArrayList<Point> possiblePoints = matrix.getPossiblePoints(i);
-                    distribute(i, possiblePoints, 0);
-                    if (matrix.isSolved()) break;
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    isRepeat |= map.distributeIsPossible(x, y);
                 }
             }
         }
 
-        if (!matrix.isSolved()) {
+        if (!map.isSolved()) {
+            // brute force
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    Node node = map.nodes[x][y];
+                    if (node != null && node.value > 0) {
+                        distribute(node, 0);
+                        if (map.isSolved()) break;
+                    }
+                }
+            }
+        }
+
+        if (!map.isSolved()) {
             while (stack.size() > startStackSize) {
-                matrix.restore(stack.pop());
+                map.restore(stack.pop());
             }
         }
     }
 
-    private static void distribute(int node, ArrayList<Point> possiblePoints, int startPoint) {
-        Integer weight = matrix.getWeightOfNode(node);
-        if (weight == 0) {
+    private static void distribute(Node node, int startPoint) {
+        final int value = node.value;
+        if (value == 0) {
             lookingSolutions();
         } else {
-            for (int i = startPoint; i < possiblePoints.size(); i++) {
-                final Point point = possiblePoints.get(i);
-                Integer v = matrix.getWeightOfPoint(point);
-                if (v != null && v < 2) {
-                    final State state = matrix.distribute(point);
+            final Link[] links = node.links;
+            for (int i = startPoint; i < links.length; i++) {
+                final Link link = links[i];
+                if (link != null && link.countFreeLinks() > 0 && link.node1.value > 0 && link.node2.value > 0) {
+                    final State state = map.distribute(link, 1);
                     if (state.isNoSolution) {
-                        matrix.restore(state);
+                        map.restore(state);
                         continue;
                     }
                     stack.push(state);
-                    distribute(node, possiblePoints, i);
-                    if (matrix.isSolved()) break;
-                    matrix.restore(stack.pop());
+                    distribute(node, i);
+                    if (map.isSolved()) break;
+                    map.restore(stack.pop());
                 }
             }
         }
     }
     
-    private static class Matrix {
+    private static class Map {
         
-        private final Integer[][] data = new Integer[countNodes][countNodes];
-        
-        private final int[] freeInRows = new int[countNodes];
-        private final int[] freeInColumns = new int[countNodes];
+        private final Node[][] nodes = new Node[width][height];
 
         private final int maxDoubleLinks;
 
-        private int countFullNodes = 0;
+        private int countNotEmptyNodes = 0;
         private int countDoubleLinks = 0;
 
-        public Matrix(String[] lines) {
-            boolean[][] field = new boolean[width][height];
-            int summ = 0;
-            for (int l = 0; l < height; l++) {
-                String line = lines[l];
-                for (int c = 0; c < width; c++) {
-                    char ch = line.charAt(c);
+        private int step = 0;
+
+        public Map(String[] lines) {
+            int sum = 0;
+            for (int y = 0; y < height; y++) {
+                String line = lines[y];
+                for (int x = 0; x < width; x++) {
+                    char ch = line.charAt(x);
                     if (ch == '.') {
                         continue;
                     }
                     countActiveNodes++;
-                    int nodeIndex = cn(c, l);
-                    int val = Character.getNumericValue(ch);
-                    data[nodeIndex][nodeIndex] = val;
-                    field[c][l] = true;
-                    countFullNodes++;
-                    summ += val;
-                }
-            }
+                    int value = Character.getNumericValue(ch);
+                    sum += value;
+                    countNotEmptyNodes++;
 
-            maxDoubleLinks = summ - 2 * (countActiveNodes - 1);
+                    Node node = new Node(x, y, value);
+                    nodes[x][y] = node;
 
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    if (field[x][y]) {
-                        for (int i = x - 1; i >= 0; i--) {
-                            if (field[i][y]) {
-                                setWeight(cn(x, y), cn(i, y), 0);
-                                freeInColumns[cn(x, y)] += 2;
-                                freeInRows[cn(i, y)] += 2;
-                                break;
-                            }
+                    for (int i = x - 1; i >= 0; i--) {
+                        final Node sibling = nodes[i][y];
+                        if (sibling != null) {
+                            node.siblings[Node.LEFT] = sibling;
+                            sibling.siblings[Node.RIGHT] = node;
+                            int possibleLink = Math.min(2, Math.min(node.value, sibling.value));
+                            final Link link = new Link(possibleLink, node, sibling);
+                            node.links[Node.LEFT] = link;
+                            sibling.links[Node.RIGHT] = link;
+                            break;
                         }
-                        for (int i = y - 1; i >= 0; i--) {
-                            if (field[x][i]) {
-                                setWeight(cn(x, y), cn(x, i), 0);
-                                freeInColumns[cn(x, y)] += 2;
-                                freeInRows[cn(x, i)] += 2;
-                                break;
-                            }
+                    }
+                    for (int i = y - 1; i >= 0; i--) {
+                        final Node sibling = nodes[x][i];
+                        if (sibling != null) {
+                            node.siblings[Node.UP] = sibling;
+                            sibling.siblings[Node.DOWN] = node;
+                            int possibleLink = Math.min(2, Math.min(node.value, sibling.value));
+                            final Link link = new Link(possibleLink, node, sibling);
+                            node.links[Node.UP] = link;
+                            sibling.links[Node.DOWN] = link;
+                            break;
                         }
                     }
                 }
             }
+
+            maxDoubleLinks = sum - 2 * (countActiveNodes - 1);
         }
 
         public boolean isSolved() {
-            if (countFullNodes > 0) return false;
+            if (countNotEmptyNodes > 0) return false;
             final int c = countLinks();
             if (c < countActiveNodes - 1) {
                 System.err.println("isSolved: " + c + "/" + countActiveNodes);
@@ -170,22 +172,23 @@ class Player {
             return true;
         }
         
-        private static int cn(int x, int y) {
-            return y * width + x;
-        }
-
         public ArrayList<String> getLinks() {
             ArrayList<String> result = new ArrayList<String>();
 
-            for (int y = 0; y < countNodes; y++) {
-                for (int x = y + 1; x < countNodes; x++) {
-                    Integer weight = data[x][y];
-                    if (weight != null && weight > 0) {
-                        int n1y = y / width;
-                        int n1x = y % width;
-                        int n2y = x / width;
-                        int n2x = x % width;
-                        result.add(n1x + " " + n1y + " " + n2x + " " + n2y + " " + weight);
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    Node node = nodes[x][y];
+                    if (node != null) {
+                        final Link upLink = node.links[Node.UP];
+                        if (upLink != null && upLink.value > 0) {
+                            result.add(upLink.node2.x + " " + upLink.node2.y +" " +
+                                    upLink.node1.x + " " + upLink.node1.y + " " + upLink.value);
+                        }
+                        final Link leftLink = node.links[Node.LEFT];
+                        if (leftLink != null && leftLink.value > 0) {
+                            result.add(leftLink.node2.x + " " + leftLink.node2.y +" " +
+                                    leftLink.node1.x + " " + leftLink.node1.y + " " + leftLink.value);
+                        }
                     }
                 }
             }
@@ -197,93 +200,46 @@ class Player {
         private int countLinks() {
             int result = 0;
 
-            for (int y = 0; y < countNodes; y++) {
-                for (int x = y + 1; x < countNodes; x++) {
-                    Integer weight = data[x][y];
-                    if (weight != null && weight > 0) {
-                        result++;
-                    }
-                }
-            }
-
-            return result;
-        }
-
-/*
-        private Integer getWeight(int x1, int y1, int x2, int y2) {
-            int n1 = cn(x1, y1);
-            int n2 = cn(x2, y2);
-            return getWeight(n1, n2);
-        }
-*/
-
-        private Integer getWeight(int node1, int node2) {
-            return node1 > node2 ? data[node1][node2] : data[node2][node1];
-        }
-
-        public ArrayList<Point> getPossiblePoints(int node) {
-            ArrayList<Point> result = new ArrayList<Point>();
-            for (int y = 0; y < node; y++) {
-                Integer v = data[node][y];
-                if (v != null && v > 0) {
-                    result.add(new Point(node, y));
-                }
-            }
-            for (int x = node + 1; x < countNodes; x++) {
-                Integer v = data[x][node];
-                if (v != null && v < 2) {
-                    result.add(new Point(x, node));
-                }
-            }
-            return result;
-        }
-
-        public Integer getWeightOfNode(int node) {
-            return data[node][node];
-        }
-
-        public Integer getWeightOfPoint(Point point) {
-            return data[point.x][point.y];
-        }
-
-        public boolean distributeIsPossible(int node) {
-            final Integer valueOfNode = data[node][node];
-            if (valueOfNode == null || valueOfNode == 0) {
-                return false;
-            }
-
-            if (valueOfNode != freeInColumns[node] + freeInRows[node]) {
-                //single point?
-                if (valueOfNode == 1) {
-                    int count = 0;
-                    for (int i = 0; i < countNodes; i++) {
-                        if (i != node) {
-                            Integer weight = getWeight(i, node);
-                            if (weight != null && weight < 2) {
-                                count++;
-                                if (count > 1) {
-                                    return false;
-                                }
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    final Node node = nodes[x][y];
+                    if (node != null) {
+                        for (Link link : node.links) {
+                            if (link != null && link.value > 0) {
+                                result++;
                             }
                         }
                     }
-                } else {
-                    return false;
                 }
+            }
+
+            return result;
+        }
+
+        public boolean distributeIsPossible(int x, int y) {
+            final Node node = nodes[x][y];
+            if (node == null || node.value == 0) {
+                return false;
+            }
+
+            if (node.value != node.countRestLinks() && !(node.value == 1 && node.isSingleFreeSibling())) {
+                return false;
             }
 
             final int startStackSize = stack.size();
 
-            for (int i = 0; i < countNodes; i++) {
-                if (i != node) {
-                    Integer weight = getWeight(i, node);
-                    if (weight != null && weight < 2) {
-                        final State state = distribute(i, node, Math.min(data[node][node], 2 - weight));
+            for (Link link : node.links) {
+                if (link != null) {
+                    final int countFreeLinks = link.countFreeLinks();
+                    if (countFreeLinks > 0) {
+                        int countLinks = Math.min(countFreeLinks, link.node1.value);
+                        countLinks = Math.min(countLinks, link.node2.value);
+                        final State state = distribute(link, countLinks);
                         if (state.isNoSolution) {
                             restore(state);
                         } else {
                             stack.push(state);
-                            if (data[node][node] == 0) {
+                            if (node.value == 0) {
                                 break;
                             }
                         }
@@ -294,28 +250,18 @@ class Player {
             return stack.size() > startStackSize;
         }
 
-        public State distribute(Point point) {
-            return distribute(point.x, point.y, 1);
-        }
-
-        private State distribute(int x, int y, int value) {
-            final int newValue = getWeight(x, y) + value;
-            setWeight(x, y, newValue);
-            int realX = x;
-            int realY = y;
-            if (x < y) {
-                realX = y;
-                realY = x;
+        public State distribute(Link link, int value) {
+            step++;
+            final int newValue = link.value + value;
+            System.err.println("step=" + step + ", before:\n" + toString());
+            link.value = newValue;
+            link.node1.value -= value;
+            link.node2.value -= value;
+            if (link.node1.value == 0) {
+                countNotEmptyNodes--;
             }
-            freeInRows[realY] -= value;
-            freeInColumns[realX] -= value;
-            data[x][x] -= value;
-            data[y][y] -= value;
-            if (data[x][x] == 0) {
-                countFullNodes--;
-            }
-            if (data[y][y] == 0) {
-                countFullNodes--;
+            if (link.node2.value == 0) {
+                countNotEmptyNodes--;
             }
 
             if (newValue == 2) {
@@ -324,72 +270,153 @@ class Player {
 
             boolean isNoSolution =
                     countDoubleLinks > maxDoubleLinks ||
-                    data[x][x] < 0 ||
-                    data[y][y] < 0 ||
-                    data[x][x] > freeInColumns[x] + freeInRows[x] ||
-                    data[y][y] > freeInColumns[y] + freeInRows[y];
-            return new State(x, y, value, isNoSolution);
+//                    link.node1.value < 0 ||
+//                    link.node2.value < 0 ||
+                    link.node1.isNotPossible(true) ||
+                    link.node2.isNotPossible(true);
+
+            if (!isNoSolution) {
+                System.err.println(
+                        "\nstep=" + step +
+                        ", stack=" + stack.size());
+                System.err.println(toString());
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            return new State(link, value, isNoSolution);
         }
 
         private void restore(State state) {
-            final Integer oldValue = getWeight(state.x, state.y);
+            final int oldValue = state.link.value;
             if (oldValue == 2) {
                 countDoubleLinks--;
             }
-            setWeight(state.x, state.y, oldValue - state.value);
-            freeInRows[state.y] += state.value;
-            freeInColumns[state.x] += state.value;
-            if (data[state.x][state.x] == 0) {
-                countFullNodes++;
+            state.link.value -= state.value;
+            if (state.link.node1.value == 0) {
+                countNotEmptyNodes++;
             }
-            if (data[state.y][state.y] == 0) {
-                countFullNodes++;
+            if (state.link.node2.value == 0) {
+                countNotEmptyNodes++;
             }
-            data[state.x][state.x] += state.value;
-            data[state.y][state.y] += state.value;
+            state.link.node1.value += state.value;
+            state.link.node2.value += state.value;
         }
 
-        private void setWeight(int x, int y, int weight) {
-            if (x > y) {
-                data[x][y] = weight;
-            } else {
-                data[y][x] = weight;
+        @Override
+        public String toString() {
+            StringBuilder result = new StringBuilder();
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    Node node = nodes[x][y];
+                    result.append(node == null ? "." : node.value);
+                }
+                result.append("\n");
             }
+
+            return result.toString();
         }
     }
 
     private static class State {
 
-        public final int x;
-        public final int y;
+        public final Link link;
         public final int value;
         public final boolean isNoSolution;
 
-        public State(int x, int y, int value, boolean isNoSolution) {
-            this.x = x;
-            this.y = y;
+        public State(Link link, int value, boolean isNoSolution) {
+            this.link = link;
             this.value = value;
             this.isNoSolution = isNoSolution;
         }
-
-        @Override
-        public String toString() {
-            return "(" + x + ", " + y + "), v=" + value + ", ins=" + isNoSolution;
-        }
     }
 
-    private static class Point {
+
+    private static class Node {
+        public static final int UP = 0;
+        public static final int DOWN = 1;
+        public static final int LEFT = 2;
+        public static final int RIGHT = 3;
+
+        public final Node[] siblings = new Node[4];
+        public final Link[] links = new Link[4];
+
         public final int x;
         public final int y;
 
-        public Point(int x, int y) {
+        public int value;
+
+        public Node(int x, int y, int value) {
             this.x = x;
             this.y = y;
+            this.value = value;
+        }
+
+        public int countRestLinks() {
+            int result = 0;
+
+            for (Link link : links) {
+                if (link != null) {
+                    result += link.maxValue - link.value;
+                }
+            }
+
+            return result;
+        }
+
+        public boolean isSingleFreeSibling() {
+            int result = 0;
+
+            for (Link link : links) {
+                if (link != null) {
+                    result += link.value < link.maxValue ? 1 : 0;
+                }
+            }
+
+            return result == 1;
+        }
+
+        public boolean isNotPossible(boolean checkSiblings) {
+            if (value > countRestLinks()) {
+                return false;
+            }
+
+            if (checkSiblings) {
+                for (Node node : siblings) {
+                    if (node != null && node.isNotPossible(false)) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+    }
+
+    private static class Link {
+        public final int maxValue;
+        public int value = 0;
+
+        public final Node node1;
+        public final Node node2;
+
+        public Link(int maxValue, Node node1, Node node2) {
+            this.maxValue = maxValue;
+            this.node1 = node1;
+            this.node2 = node2;
+        }
+
+        public int countFreeLinks() {
+            return maxValue - value;
         }
 
         @Override
         public String toString() {
-            return "(" + x + ", " + y + ")";
+            return value + "/" + maxValue;
         }
     }
 }
