@@ -24,14 +24,14 @@ class Player {
         Scanner in = new Scanner(System.in);
         width = in.nextInt(); // the number of cells on the X axis
         height = in.nextInt(); // the number of cells on the Y axis
-        System.err.println("width=" + width + ", height=" + height);
+        log("width=" + width + ", height=" + height);
 //        countNodes = width * height;
         String[] lines = new String[height];
         in.nextLine();
         for (int i = 0; i < height; i++) {
             String line = in.nextLine(); // width characters, each either a number or a '.'
             lines[i] = line;
-            System.err.println(line);
+            log(line);
         }
         
         map = new Map(lines);
@@ -106,7 +106,11 @@ class Player {
             }
         }
     }
-    
+
+    private static void log(String message) {
+        //System.err.println(message);
+    }
+
     private static class Map {
         
         private final Node[][] nodes = new Node[width][height];
@@ -212,7 +216,7 @@ class Player {
             if (countNotEmptyNodes > 0) return false;
             final int c = countActiveLinks();
             if (c < countActiveNodes - 1) {
-                System.err.println("isSolved: " + c + "/" + countActiveNodes);
+                log("isSolved: " + c + "/" + countActiveNodes);
                 return false;
             }
 
@@ -302,7 +306,7 @@ class Player {
         public State distribute(Link link, int value) {
             step++;
             final int newValue = link.value + value;
-            System.err.println(">>>before: step=" + step + ", l=" + link.node2 + "-" + link.node1 +
+            log(">>>before: step=" + step + ", l=" + link.node2 + "-" + link.node1 +
                     ", v=" + value + "\n" + toString());
             link.value = newValue;
             link.node1.value -= value;
@@ -336,10 +340,10 @@ class Player {
             }
 
             if (!isNoSolution) {
-                System.err.println(
+                log(
                         "\nstep=" + step +
                         ", stack=" + stack.size());
-                System.err.println(toString());
+                log(toString());
 //                try {
 //                    Thread.sleep(50);
 //                } catch (InterruptedException e) {
@@ -367,7 +371,7 @@ class Player {
             for (Link lc : state.link.crosses) {
                 lc.unblock();
             }
-            System.err.println("restore " + state);
+            log("restore " + state);
         }
 
         @Override
