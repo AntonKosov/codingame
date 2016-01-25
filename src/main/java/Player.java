@@ -155,25 +155,29 @@ class Player {
                     if (node != null) {
                         for (int i = x - 1; i >= 0; i--) {
                             final Node sibling = nodes[i][y];
-                            if (sibling != null && (countActiveNodes == 2 || (node.value != 1 || sibling.value != 1))) { // 1 to 1 link is separated
-                                node.siblings[LEFT] = sibling;
-                                sibling.siblings[RIGHT] = node;
-                                int possibleLink = maxDoubleLinks == 0 ? 1 : Math.min(2, Math.min(node.value, sibling.value));
-                                final Link link = new Link(possibleLink, node, sibling);
-                                node.links[LEFT] = link;
-                                sibling.links[RIGHT] = link;
+                            if (sibling != null) {
+                                if (countActiveNodes == 2 || (node.value != 1 || sibling.value != 1)) {  // 1 to 1 link is separated
+                                    node.siblings[LEFT] = sibling;
+                                    sibling.siblings[RIGHT] = node;
+                                    int possibleLink = maxDoubleLinks == 0 ? 1 : Math.min(2, Math.min(node.value, sibling.value));
+                                    final Link link = new Link(possibleLink, node, sibling);
+                                    node.links[LEFT] = link;
+                                    sibling.links[RIGHT] = link;
+                                }
                                 break;
                             }
                         }
                         for (int i = y - 1; i >= 0; i--) {
                             final Node sibling = nodes[x][i];
-                            if (sibling != null && (countActiveNodes == 2 || (node.value != 1 || sibling.value != 1))) { // 1 to 1 link is separated
-                                node.siblings[UP] = sibling;
-                                sibling.siblings[DOWN] = node;
-                                int possibleLink = maxDoubleLinks == 0 ? 1 : Math.min(2, Math.min(node.value, sibling.value));
-                                final Link link = new Link(possibleLink, node, sibling);
-                                node.links[UP] = link;
-                                sibling.links[DOWN] = link;
+                            if (sibling != null) {
+                                if (countActiveNodes == 2 || (node.value != 1 || sibling.value != 1)) {  // 1 to 1 link is separated
+                                    node.siblings[UP] = sibling;
+                                    sibling.siblings[DOWN] = node;
+                                    int possibleLink = maxDoubleLinks == 0 ? 1 : Math.min(2, Math.min(node.value, sibling.value));
+                                    final Link link = new Link(possibleLink, node, sibling);
+                                    node.links[UP] = link;
+                                    sibling.links[DOWN] = link;
+                                }
                                 break;
                             }
                         }
@@ -408,9 +412,9 @@ class Player {
                         hLink = node.links[RIGHT];
                         vLinks[x] = node.links[DOWN];
                         result.append(node.value);
-                    } else if (hLink != null && hLink.value > 0) {
+                    } else if (Link.isActive(hLink)) {
                         result.append("-");
-                    } else if (vLinks[x] != null && vLinks[x].value > 0) {
+                    } else if (Link.isActive(vLinks[x])) {
                         result.append("|");
                     } else {
                         result.append(".");
