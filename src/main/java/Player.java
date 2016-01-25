@@ -5,6 +5,9 @@ import java.util.*;
  **/
 class Player {
 
+    public static final boolean SHOW_LOGS = false;
+    public static final boolean SLOW_MODE = false;
+
     public static final int UP = 0;
     public static final int DOWN = 1;
     public static final int LEFT = 2;
@@ -105,7 +108,7 @@ class Player {
     }
 
     private static void log(String message) {
-        //System.err.println(message);
+        if (SHOW_LOGS) System.err.println(message);
     }
 
     private static class Map {
@@ -147,13 +150,12 @@ class Player {
             maxDoubleLinks = sum - 2 * (countActiveNodes - 1);
 
             for (int y = 0; y < height; y++) {
-                String line = lines[y];
                 for (int x = 0; x < width; x++) {
                     Node node = nodes[x][y];
                     if (node != null) {
                         for (int i = x - 1; i >= 0; i--) {
                             final Node sibling = nodes[i][y];
-                            if (sibling != null) {
+                            if (sibling != null && (countActiveNodes == 2 || (node.value != 1 || sibling.value != 1))) { // 1 to 1 link is separated
                                 node.siblings[LEFT] = sibling;
                                 sibling.siblings[RIGHT] = node;
                                 int possibleLink = maxDoubleLinks == 0 ? 1 : Math.min(2, Math.min(node.value, sibling.value));
@@ -165,7 +167,7 @@ class Player {
                         }
                         for (int i = y - 1; i >= 0; i--) {
                             final Node sibling = nodes[x][i];
-                            if (sibling != null) {
+                            if (sibling != null && (countActiveNodes == 2 || (node.value != 1 || sibling.value != 1))) { // 1 to 1 link is separated
                                 node.siblings[UP] = sibling;
                                 sibling.siblings[DOWN] = node;
                                 int possibleLink = maxDoubleLinks == 0 ? 1 : Math.min(2, Math.min(node.value, sibling.value));
@@ -362,11 +364,13 @@ class Player {
             if (!isNoSolution) {
                 log("\nstep=" + step + ", stack=" + stack.size());
                 log(toString());
-//                try {
-//                    Thread.sleep(50);
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
+                if (SLOW_MODE) {
+                    try {
+                        Thread.sleep(50);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
 
             return new State(link, value, isNoSolution);
