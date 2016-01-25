@@ -508,7 +508,7 @@ class Player {
             linkedNodeCounter = counterValue;
 
             for (Link link : links) {
-                if (link == null || link.value == 0) {
+                if (!Link.isActive(link)) {
                     continue;
                 }
                 if (link.node1.linkedNodeCounter != counterValue) {
