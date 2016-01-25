@@ -33,13 +33,10 @@ class Player {
             lines[i] = line;
             log(line);
         }
-        
+
         map = new Map(lines);
         lookingSolutions();
         if (map.isSolved()) {
-            // Write an action using System.out.println()
-            // To debug: System.err.println("Debug messages...");
-
             ArrayList<String> answers = map.getLinks();
             for (String answer : answers) {
                 System.out.println(answer); // Two coordinates and one integer: a node, one of its neighbors, the number of links connecting them.
@@ -112,7 +109,7 @@ class Player {
     }
 
     private static class Map {
-        
+
         private final Node[][] nodes = new Node[width][height];
 
         private final int maxDoubleLinks;
@@ -121,6 +118,10 @@ class Player {
         private int countDoubleLinks = 0;
 
         private int step = 0;
+
+        private Node firstNode;
+
+        private boolean isSolvedCache = false;
 
         public Map(String[] lines) {
             int sum = 0;
@@ -138,29 +139,41 @@ class Player {
 
                     Node node = new Node(x, y, value);
                     nodes[x][y] = node;
-
-                    for (int i = x - 1; i >= 0; i--) {
-                        final Node sibling = nodes[i][y];
-                        if (sibling != null) {
-                            node.siblings[LEFT] = sibling;
-                            sibling.siblings[RIGHT] = node;
-                            int possibleLink = Math.min(2, Math.min(node.value, sibling.value));
-                            final Link link = new Link(possibleLink, node, sibling);
-                            node.links[LEFT] = link;
-                            sibling.links[RIGHT] = link;
-                            break;
-                        }
+                    if (firstNode == null) {
+                        firstNode = node;
                     }
-                    for (int i = y - 1; i >= 0; i--) {
-                        final Node sibling = nodes[x][i];
-                        if (sibling != null) {
-                            node.siblings[UP] = sibling;
-                            sibling.siblings[DOWN] = node;
-                            int possibleLink = Math.min(2, Math.min(node.value, sibling.value));
-                            final Link link = new Link(possibleLink, node, sibling);
-                            node.links[UP] = link;
-                            sibling.links[DOWN] = link;
-                            break;
+                }
+            }
+            maxDoubleLinks = sum - 2 * (countActiveNodes - 1);
+
+            for (int y = 0; y < height; y++) {
+                String line = lines[y];
+                for (int x = 0; x < width; x++) {
+                    Node node = nodes[x][y];
+                    if (node != null) {
+                        for (int i = x - 1; i >= 0; i--) {
+                            final Node sibling = nodes[i][y];
+                            if (sibling != null) {
+                                node.siblings[LEFT] = sibling;
+                                sibling.siblings[RIGHT] = node;
+                                int possibleLink = maxDoubleLinks == 0 ? 1 : Math.min(2, Math.min(node.value, sibling.value));
+                                final Link link = new Link(possibleLink, node, sibling);
+                                node.links[LEFT] = link;
+                                sibling.links[RIGHT] = link;
+                                break;
+                            }
+                        }
+                        for (int i = y - 1; i >= 0; i--) {
+                            final Node sibling = nodes[x][i];
+                            if (sibling != null) {
+                                node.siblings[UP] = sibling;
+                                sibling.siblings[DOWN] = node;
+                                int possibleLink = maxDoubleLinks == 0 ? 1 : Math.min(2, Math.min(node.value, sibling.value));
+                                final Link link = new Link(possibleLink, node, sibling);
+                                node.links[UP] = link;
+                                sibling.links[DOWN] = link;
+                                break;
+                            }
                         }
                     }
                 }
@@ -208,11 +221,10 @@ class Player {
                     }
                 }
             }
-
-            maxDoubleLinks = sum - 2 * (countActiveNodes - 1);
         }
 
         public boolean isSolved() {
+            if (isSolvedCache) return true;
             if (countNotEmptyNodes > 0) return false;
             final int c = countActiveLinks();
             if (c < countActiveNodes - 1) {
@@ -220,10 +232,18 @@ class Player {
                 return false;
             }
 
-            //c >= (countActiveNodes * countActiveNodes - 3 * countActiveNodes + 4) / 2;
-            return true;
+            if (c >= (countActiveNodes * countActiveNodes - 3 * countActiveNodes + 4) / 2) {
+                log("isSolved (mn)");
+                return true;
+            }
+
+
+            int linkedNodes = map.firstNode.countLinked(map.firstNode.linkedNodeCounter + 1);
+            log("isSolved (c): " + linkedNodes + "/" + countActiveNodes);
+            isSolvedCache = linkedNodes == countActiveNodes;
+            return isSolvedCache;
         }
-        
+
         public ArrayList<String> getLinks() {
             ArrayList<String> result = new ArrayList<String>();
 
@@ -340,9 +360,7 @@ class Player {
             }
 
             if (!isNoSolution) {
-                log(
-                        "\nstep=" + step +
-                        ", stack=" + stack.size());
+                log("\nstep=" + step + ", stack=" + stack.size());
                 log(toString());
 //                try {
 //                    Thread.sleep(50);
@@ -429,6 +447,8 @@ class Player {
 
         public int value;
 
+        public int linkedNodeCounter = 0;
+
         public Node(int x, int y, int value) {
             this.x = x;
             this.y = y;
@@ -473,6 +493,25 @@ class Player {
             }
 
             return true;
+        }
+
+        public int countLinked(int counterValue) {
+            int result = 1;
+            linkedNodeCounter = counterValue;
+
+            for (Link link : links) {
+                if (link == null || link.value == 0) {
+                    continue;
+                }
+                if (link.node1.linkedNodeCounter != counterValue) {
+                    result += link.node1.countLinked(counterValue);
+                }
+                if (link.node2.linkedNodeCounter != counterValue) {
+                    result += link.node2.countLinked(counterValue);
+                }
+            }
+
+            return result;
         }
 
         @Override
