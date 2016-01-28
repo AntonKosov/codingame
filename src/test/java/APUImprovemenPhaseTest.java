@@ -5,7 +5,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
-public class PlayerTest {
+public class APUImprovemenPhaseTest {
 
     @Test
     public void simplest() {
@@ -326,7 +326,7 @@ public class PlayerTest {
         PrintStream printStream = new PrintStream(stream);
         System.setOut(printStream);
 
-        Player.main(null);
+        APUImprovemenPhase.main(null);
 
         System.out.flush();
         String out = stream.toString();
