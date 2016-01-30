@@ -4,9 +4,9 @@ import java.util.*;
  * Auto-generated code below aims at helping you parse
  * the standard input according to the problem statement.
  **/
-class Player {
+class Labyrinth {
 
-    private static final boolean SHOW_LOGS = true;
+    private static final boolean SHOW_LOGS = false;
     private static final boolean SLOW_MODE = false;
 
     private static final int COUNT_PATHS = 3;
@@ -29,11 +29,11 @@ class Player {
 
     private static Cell[][] sMaze;
 
-    private static Cell sTeleport = null;
+    private static Cell sTeleport;
 
-    private static Cell sControl = null;
+    private static Cell sControl;
 
-    private static State sState = State.lookingControl;
+    private static State sState;
 
     public static void main(String args[]) {
         final Scanner in = new Scanner(System.in);
@@ -42,6 +42,9 @@ class Player {
         sWidth = in.nextInt(); // number of columns.
         final int timeOfAlarm = in.nextInt(); // number of rounds between the time the alarm countdown is activated and the time the alarm goes off.
         log("h=" + sHeight + ", w=" + sWidth + ", a=" + timeOfAlarm);
+        sState = State.lookingControl;
+        sTeleport = null;
+        sControl = null;
 
         sMaze = new Cell[sWidth][sHeight];
         for (int y = 0; y < sHeight; y++) {
@@ -53,10 +56,13 @@ class Player {
                 sMaze[x][y] = cell;
             }
         }
+        int step = 0;
 
         // game loop
         final LinkedList<Cell> path = new LinkedList<Cell>();
         while (true) {
+            step++;
+            log("step=" + step);
             sKY = in.nextInt(); // row where Kirk is located.
             sKX = in.nextInt(); // column where Kirk is located.
             log("kx=" + sKX + ", ky=" + sKY);
@@ -139,7 +145,7 @@ class Player {
         sTempQueue.clear();
         final Cell firstCell = sMaze[sKX][sKY];
         firstCell.indexOfExplore = 0;
-        sTempQueue.push(firstCell);
+        sTempQueue.add(firstCell);
         Cell bestCell = null;
         while (!sTempQueue.isEmpty()) {
             final Cell currentCell = sTempQueue.pop();
@@ -150,8 +156,11 @@ class Player {
                     if (bestCell == null || bestCell.indexOfExplore < neighbour.indexOfExplore) {
                         bestCell = neighbour;
                     }
-                    sTempQueue.push(neighbour);
+                    sTempQueue.add(neighbour);
                 }
+            }
+            if (bestCell != null && bestCell.indexOfExplore > 0) {
+                break;
             }
         }
 
@@ -167,7 +176,7 @@ class Player {
         sMaze[sX][sY].paths[indexOfPath] = 0;
 
         sTempQueue.clear();
-        sTempQueue.push(sMaze[sX][sY]);
+        sTempQueue.add(sMaze[sX][sY]);
         while (!sTempQueue.isEmpty()) {
             final Cell cell = sTempQueue.pop();
             final int nextStep = cell.paths[indexOfPath] + 1;
@@ -178,7 +187,7 @@ class Player {
                         continue;
                     }
                     neighbour.paths[indexOfPath] = nextStep;
-                    sTempQueue.push(neighbour);
+                    sTempQueue.add(neighbour);
                 }
             }
         }
@@ -209,7 +218,6 @@ class Player {
                 if (cell.type != CellType.unknown) {
                     continue;
                 }
-                existsNewCells = true;
                 switch (ch) {
                     case '?':
                         continue;
@@ -228,7 +236,7 @@ class Player {
                         sControl = cell;
                         break;
                 }
-
+                existsNewCells = true;
             }
         }
 

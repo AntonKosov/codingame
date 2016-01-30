@@ -1,3 +1,4 @@
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -14,8 +15,8 @@ import java.util.LinkedList;
 import java.util.Scanner;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({Scanner.class, Player.class})
-public class PlayerTest {
+@PrepareForTest({Scanner.class, Labyrinth.class})
+public class LabyrinthTest {
 
     private final LinkedList<String> mOutQueue = new LinkedList<String>();
 
@@ -33,6 +34,7 @@ public class PlayerTest {
         mOriginalOutPrintStream = System.out;
     }
 
+    @After
     public void after() {
         System.setOut(mOriginalOutPrintStream);
     }
@@ -56,6 +58,51 @@ public class PlayerTest {
                         "??????????????????????????????",
                         "??????????????????????????????",
                         "??????????????????????????????"
+                });
+    }
+
+    @Test(expected = SuccessException.class)
+    public void easyEmpty() throws Exception {
+        startTest(40,
+                new String[]{
+                        "##############################",
+                        "#T...........................#",
+                        "##...........................#",
+                        "#............................#",
+                        "#............................#",
+                        "#............................#",
+                        "#............................#",
+                        "#............................#",
+                        "#............................#",
+                        "#............................#",
+                        "#............................#",
+                        "#............................#",
+                        "#............................#",
+                        "#............................#",
+                        "#...........................C#",
+                        "##############################",
+                });
+    }
+
+    @Test(expected = SuccessException.class)
+    public void difficultLonger() throws Exception {
+        startTest(71,
+                new String[] {
+                        "##############################",
+                        "#............................#",
+                        "#..####################......#",
+                        "#.....................#..C...#",
+                        "#............###..##..#..#...#",
+                        "##.###########################",
+                        "#...#.....##......##.........#",
+                        "#...#..#..##..##..##..####...#",
+                        "###....#......##......##.....#",
+                        "#..#.#######################.#",
+                        "#..#.#................#......#",
+                        "#..#.#................T......#",
+                        "#..#.#######################.#",
+                        "#............................#",
+                        "##############################"
                 });
     }
 
@@ -151,7 +198,7 @@ public class PlayerTest {
         }).when(printStream).println(Mockito.anyString());
         System.setOut(printStream);
 
-        Player.main(null);
+        Labyrinth.main(null);
     }
 
     private void putMaze(int height, int width, String[] maze, boolean[][] visibility) {
