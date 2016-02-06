@@ -1,9 +1,11 @@
+package hard;
+
 import java.util.*;
 
 /**
  * The machines are gaining ground. Time to show them what we're really made of...
  **/
-class APUImprovemenPhase {
+public class APUImprovemenPhase {
 
     public static final boolean SHOW_LOGS = false;
     public static final boolean SLOW_MODE = false;

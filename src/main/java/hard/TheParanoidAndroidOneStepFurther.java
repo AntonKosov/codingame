@@ -1,6 +1,8 @@
+package hard;
+
 import java.util.*;
 
-class TheParanoidAndroidOneStepFurther {
+public class TheParanoidAndroidOneStepFurther {
 
     private static final boolean SHOW_LOGS = false;
 

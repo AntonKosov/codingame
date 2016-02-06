@@ -1,3 +1,6 @@
+package hard;
+
+import hard.APUImprovemenPhase;
 import org.junit.Assert;
 import org.junit.Test;
 

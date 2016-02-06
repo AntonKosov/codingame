@@ -1,10 +1,12 @@
+package hard;
+
 import java.util.*;
 
 /**
  * Auto-generated code below aims at helping you parse
  * the standard input according to the problem statement.
  **/
-class Labyrinth {
+public class Labyrinth {
 
     private static final boolean SHOW_LOGS = false;
     private static final boolean SLOW_MODE = false;
