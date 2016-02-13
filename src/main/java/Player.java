@@ -161,13 +161,12 @@ class Player {
             dx = 1;
             dy = 0;
         } else {
-            final float d = line.a / line.b * Math.signum(line.a * line.b);
             if (Math.abs(line.a / line.b) > 1) {
-                dx = d;
+                dx = line.b / line.a * Math.signum(line.a * line.b);
                 dy = 1;
             } else {
                 dx = 1;
-                dy = d;
+                dy = line.a / line.b * Math.signum(line.a * line.b);
             }
         }
 

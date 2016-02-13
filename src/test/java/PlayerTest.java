@@ -56,6 +56,11 @@ public class PlayerTest {
         startTest(1, 100, 0, 86, 12, 0, 98);
     }
 
+    @Test(expected = SuccessException.class)
+    public void losserJumps() throws Exception {
+        startTest(15, 15, 0, 1, 12, 3, 6);
+    }
+
     private void startTest(int width, int height, int bombX, int bombY, final int turns, int startX, int startY) throws Exception {
         mOutQueue.clear();
         mOutQueue.add(String.valueOf(width));
