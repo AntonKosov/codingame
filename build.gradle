@@ -13,7 +13,7 @@ dependencies {
 
     testCompile 'junit:junit:4.12'
 
-    testCompile 'org.powermock:powermock-core:$powerMockVersion'
+    testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
-    testCompile 'org.powermock:powermock-modules-test-mockito:$powerMockVersion'
+    testCompile "org.powermock:powermock-modules-test-mockito:$powerMockVersion"
 }

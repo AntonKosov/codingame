@@ -41,6 +41,21 @@ public class PlayerTest {
         startTest(10, 10, 7, 4, 6, 2, 6);
     }
 
+    @Test(expected = SuccessException.class)
+    public void aLotOfJumps() throws Exception {
+        startTest(5, 16, 4, 10, 80, 1, 5);
+    }
+
+    @Test(expected = SuccessException.class)
+    public void lessJumps() throws Exception {
+        startTest(18, 32, 2, 1, 45, 17, 31);
+    }
+
+    @Test(expected = SuccessException.class)
+    public void tower() throws Exception {
+        startTest(1, 100, 0, 86, 12, 0, 98);
+    }
+
     private void startTest(int width, int height, int bombX, int bombY, final int turns, int startX, int startY) throws Exception {
         mOutQueue.clear();
         mOutQueue.add(String.valueOf(width));
