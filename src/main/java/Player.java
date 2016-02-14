@@ -374,8 +374,8 @@ class Player {
 
         min.x = minX;
         min.y = minY;
-        max.x = maxX;
-        max.y = maxY;
+        max.x = maxX - (int) maxX > 0.5 ? 1 + (int) maxX : maxX;
+        max.y = maxY - (int) maxY > 0.5 ? 1 + (int) maxY : maxY;
     }
 
     private static Vertex tryFindByArea(ArrayList<StartOfSegment> segments) {
