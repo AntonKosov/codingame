@@ -76,9 +76,14 @@ public class PlayerTest {
         startTest(8000, 8000, 0, 1, 31, 3200, 2100);
     }
 
+//    @Test(expected = SuccessException.class)
+//    public void soManyWindows2() throws Exception {
+//        startTest(8000, 8000, 28, 42, 31 - 3, 3201, 2100); // -3 turns
+//    }
+
     @Test(expected = SuccessException.class)
-    public void soManyWindows2() throws Exception {
-        startTest(8000, 8000, 28, 42, 31 - 3, 3201, 2100); // -3 turns
+    public void soManyWindows3() throws Exception {
+        startTest(8000, 8000, 22, 39, 31 - 3, 3201, 2100); // -3 turns
     }
 
     private void startTest(int width, int height, int bombX, int bombY, final int turns, int startX, int startY) throws Exception {

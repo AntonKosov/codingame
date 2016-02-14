@@ -88,7 +88,7 @@ class Player {
 
         if (dist == Distance.same) {
             sIsSameMode = true;
-            firstSearchSame(prevVertex, currVertex, outSegments);
+            sSameVertexes.addAll(searchSame(prevVertex, currVertex, outSegments));
             return;
         }
 
@@ -130,17 +130,20 @@ class Player {
         }
     }
 
-    private static void firstSearchSame(Vertex v1, Vertex v2, ArrayList<StartOfSegment> segments) {
+    private static ArrayList<Vertex> searchSame(Vertex v1, Vertex v2, ArrayList<StartOfSegment> segments) {
         final Linear v1v2 = Linear.createByVertexes(v1, v2);
         final Vertex v1v2middle = v1.middle(v2);
         final Linear same = Linear.createByVertexAndOrthLine(v1v2middle, v1v2);
+        final ArrayList<Vertex> result = new ArrayList<>();
 
         final ArrayList<Vertex> unvisitedInLine = getUnvisitedInLine(same, segments);
         for (Vertex vertex : unvisitedInLine) {
             if (vertex.dst2(v1) == vertex.dst2(v2)) {
-                sSameVertexes.add(vertex);
+                result.add(vertex);
             }
         }
+
+        return result;
     }
 
     private static ArrayList<Vertex> getUnvisitedInLine(Linear line, ArrayList<StartOfSegment> segments) {
@@ -174,13 +177,18 @@ class Player {
 
         final Vertex tv = new Vertex();
         final Vertex cv = new Vertex();
+        final Vertex min = new Vertex();
+        final Vertex max = new Vertex();
+        getBound(segments, min, max);
         while (v.x < sWidth && v.y < sHeight) {
-            tv.copyFrom(v);
-            round(tv);
-            cv.x = (int) tv.x;
-            cv.y = (int) tv.y;
-            if (!sVisitedVertexes.contains(cv) && isInside(tv, segments)) {
-                result.add(new Vertex(tv.x, tv.y));
+            if (v.x >= min.x && v.x <= max.x && v.y >= min.y && v.y <= max.y) {
+                tv.copyFrom(v);
+                round(tv);
+                cv.x = (int) tv.x;
+                cv.y = (int) tv.y;
+                if (!sVisitedVertexes.contains(cv) && isInside(tv, segments)) {
+                    result.add(new Vertex(tv.x, tv.y));
+                }
             }
 
             v.x += dx;
@@ -247,6 +255,8 @@ class Player {
             Vertex vertex2,
             float minDifference,
             Vertex outOptimalVertex) {
+        final float area = getArea(segments);
+
         if (vertex1.equals(vertex2)) {
             return minDifference;
         }
@@ -278,10 +288,10 @@ class Player {
         final float area1 = getArea(subSegment1);
         final float area2 = getArea(subSegment2);
         if (area1 != 0 && area2 != 0) {
-            final float difference = Math.abs(area1 - area2);
+            final int countSame = area < 5000 ? searchSame(newVertex, lastVertex, segments).size() : 0;
+            final float difference = Math.abs(area1 - area2) - countSame;
             if (difference < minDifference) {
                 outOptimalVertex.copyFrom(newVertex);
-                //todo optimization: - same
                 minDifference = difference;
             }
         }
