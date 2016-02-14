@@ -212,43 +212,13 @@ class Player {
         if (optimalVertex != null) {
             return optimalVertex;
         }
-        float minDifference = 0;
+
+        //try to find symmetric
+        optimalVertex = new Vertex();
+        float minDifference = tryFindSymmetric(segments, center, lastVertex, optimalVertex);
+
         for (StartOfSegment segment : segments) {
-            final Linear cutOverSegment = Linear.createByVertexes(segment.vertex, center);
-            final Linear axis = Linear.createByVertexAndOrthLine(lastVertex, cutOverSegment);
-            final Vertex intersect = axis.intersect(cutOverSegment);
-
-            final Vertex newVertex = new Vertex(
-                    intersect.x + intersect.x - lastVertex.x,
-                    intersect.y + intersect.y - lastVertex.y);
-            if (newVertex.y < 0) {
-                fixVertex(sTop, axis, 0, 0.5f, newVertex);
-            }
-            if (newVertex.x >= sWidth) {
-                fixVertex(sRight, axis, -0.5f, 0, newVertex);
-            }
-            if (newVertex.y >= sHeight) {
-                fixVertex(sBottom, axis, 0, -0.5f, newVertex);
-            }
-            if (newVertex.x < 0) {
-                fixVertex(sLeft, axis, 0.5f, 0, newVertex);
-            }
-            round(newVertex);
-            if (newVertex.equals(lastVertex)) {
-                continue;
-            }
-
-            final ArrayList<StartOfSegment> subSegment1 = cut(Distance.warmer, lastVertex, newVertex, segments);
-            final ArrayList<StartOfSegment> subSegment2 = cut(Distance.colder, lastVertex, newVertex, segments);
-            final float area1 = getArea(subSegment1);
-            final float area2 = getArea(subSegment2);
-            if (area1 != 0 && area2 != 0) {
-                final float difference = Math.abs(area1 - area2);
-                if (optimalVertex == null || difference < minDifference) {
-                    optimalVertex = newVertex;
-                    minDifference = difference;
-                }
-            }
+            minDifference = tryFindVertex(segments, lastVertex, segment.vertex, center, minDifference, optimalVertex);
         }
 
         final float area = getArea(segments);
@@ -261,13 +231,76 @@ class Player {
         if (areaRatio < 0.1f && optimalK > 5) {
             log("Very thin, min=" + min + ", max=" + max);
             optimalVertex = findVertexFromThinShape(segments, lastVertex, min, max);
-        } else if (optimalVertex == null) {
+        } else if (minDifference == Float.MAX_VALUE) {
             optimalVertex = findVertexFromThinShape(segments, lastVertex, min, max);
         }
 
         log("Next vertex: " + optimalVertex);
 
         return optimalVertex;
+    }
+
+    private static float tryFindVertex(
+            ArrayList<StartOfSegment> segments,
+            Vertex lastVertex,
+            Vertex vertex1,
+            Vertex vertex2,
+            float minDifference,
+            Vertex outOptimalVertex) {
+        if (vertex1.equals(vertex2)) {
+            return minDifference;
+        }
+        final Linear cutOverSegment = Linear.createByVertexes(vertex1, vertex2);
+        final Linear axis = Linear.createByVertexAndOrthLine(lastVertex, cutOverSegment);
+        final Vertex intersect = axis.intersect(cutOverSegment);
+        final Vertex newVertex = new Vertex(
+                intersect.x + intersect.x - lastVertex.x,
+                intersect.y + intersect.y - lastVertex.y);
+        if (newVertex.y < 0) {
+            fixVertex(sTop, axis, 0, 0.5f, newVertex);
+        }
+        if (newVertex.x >= sWidth) {
+            fixVertex(sRight, axis, -0.5f, 0, newVertex);
+        }
+        if (newVertex.y >= sHeight) {
+            fixVertex(sBottom, axis, 0, -0.5f, newVertex);
+        }
+        if (newVertex.x < 0) {
+            fixVertex(sLeft, axis, 0.5f, 0, newVertex);
+        }
+        round(newVertex);
+        if (newVertex.equals(lastVertex)) {
+            return minDifference;
+        }
+
+        final ArrayList<StartOfSegment> subSegment1 = cut(Distance.warmer, lastVertex, newVertex, segments);
+        final ArrayList<StartOfSegment> subSegment2 = cut(Distance.colder, lastVertex, newVertex, segments);
+        final float area1 = getArea(subSegment1);
+        final float area2 = getArea(subSegment2);
+        if (area1 != 0 && area2 != 0) {
+            final float difference = Math.abs(area1 - area2);
+            if (difference < minDifference) {
+                outOptimalVertex.copyFrom(newVertex);
+                //todo optimization: - same
+                minDifference = difference;
+            }
+        }
+
+        return minDifference;
+    }
+
+    private static float tryFindSymmetric(
+            ArrayList<StartOfSegment> segments,
+            Vertex center,
+            Vertex lastVertex,
+            Vertex outVertex) {
+        final Vertex h = new Vertex(center.x, lastVertex.y);
+        final Vertex v = new Vertex(lastVertex.x, center.y);
+
+        float result = tryFindVertex(segments, lastVertex, center, h, Float.MAX_VALUE, outVertex);
+        result = tryFindVertex(segments, lastVertex, center, v, result, outVertex);
+
+        return result;
     }
 
     private static Vertex findVertexFromThinShape(ArrayList<StartOfSegment> segments, Vertex lastVertex, Vertex min, Vertex max) {
@@ -435,7 +468,7 @@ class Player {
             final float a = vertex1.dst(vertex2);
             final float b = vertex1.dst(vertex3);
             final float c = vertex2.dst(vertex3);
-            final float areaTriangle = (float) Math.sqrt((a + b +c) * (b + c - a) * (a + c - b) * (a + b - c)) / 4;
+            final float areaTriangle = (float) Math.sqrt((a + b + c) * (b + c - a) * (a + c - b) * (a + b - c)) / 4;
 
             if (v == 1) {
                 //first step
@@ -670,7 +703,7 @@ class Player {
         public static Linear createByVertexes(float x1, float y1, float x2, float y2) {
             final float a = y1 - y2;
             final float b = x2 - x1;
-            final float c = x1 * y2  - x2 * y1;
+            final float c = x1 * y2 - x2 * y1;
             return new Linear(a, b, c);
         }
 
@@ -702,9 +735,9 @@ class Player {
         public String toString() {
             return
                     (a == 0 ? "" : a + "x") +
-                    (b == 0 ? "" : (a != 0 && b > 0 ? "+" : "") + b + "y") +
-                    (c == 0 ? "" : (c > 0 ? "+" : "") + c) +
-                    "=0";
+                            (b == 0 ? "" : (a != 0 && b > 0 ? "+" : "") + b + "y") +
+                            (c == 0 ? "" : (c > 0 ? "+" : "") + c) +
+                            "=0";
         }
     }
 

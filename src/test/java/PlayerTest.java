@@ -67,8 +67,18 @@ public class PlayerTest {
     }
 
     @Test(expected = SuccessException.class)
+    public void aLotOfWindows2() throws Exception {
+        startTest(1000, 1000, 675, 545, 27, 501, 501);
+    }
+
+    @Test(expected = SuccessException.class)
     public void soManyWindows() throws Exception {
         startTest(8000, 8000, 0, 1, 31, 3200, 2100);
+    }
+
+    @Test(expected = SuccessException.class)
+    public void soManyWindows2() throws Exception {
+        startTest(8000, 8000, 28, 42, 31 - 3, 3201, 2100); // -3 turns
     }
 
     private void startTest(int width, int height, int bombX, int bombY, final int turns, int startX, int startY) throws Exception {
