@@ -1,6 +1,8 @@
+package veryhard;
+
 import java.util.*;
 
-class Player {
+class Triangulation {
 
     private static final boolean SHOW_LOGS = true;
 

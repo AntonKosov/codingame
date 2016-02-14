@@ -1,3 +1,5 @@
+package veryhard;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -9,14 +11,15 @@ import org.mockito.stubbing.Answer;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import veryhard.Triangulation;
 
 import java.io.PrintStream;
 import java.util.LinkedList;
 import java.util.Scanner;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({Scanner.class, Player.class})
-public class PlayerTest {
+@PrepareForTest({Scanner.class, Triangulation.class})
+public class TriangulationTest {
 
     private final LinkedList<String> mOutQueue = new LinkedList<String>();
     private PrintStream mOriginalOutPrintStream;
@@ -153,7 +156,7 @@ public class PlayerTest {
         }).when(printStream).println(Mockito.anyString());
         System.setOut(printStream);
 
-        Player.main(null);
+        Triangulation.main(null);
     }
 
     private static class SuccessException extends Exception {
