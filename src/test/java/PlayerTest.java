@@ -61,6 +61,16 @@ public class PlayerTest {
         startTest(15, 15, 0, 1, 12, 3, 6);
     }
 
+    @Test(expected = SuccessException.class)
+    public void aLotOfWindows() throws Exception {
+        startTest(1000, 1000, 719, 491, 27, 501, 501);
+    }
+
+    @Test(expected = SuccessException.class)
+    public void soManyWindows() throws Exception {
+        startTest(8000, 8000, 0, 1, 31, 3200, 2100);
+    }
+
     private void startTest(int width, int height, int bombX, int bombY, final int turns, int startX, int startY) throws Exception {
         mOutQueue.clear();
         mOutQueue.add(String.valueOf(width));

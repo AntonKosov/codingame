@@ -19,8 +19,8 @@ class Player {
     private static int sStep;
 
     public static void main(String args[]) {
-        final Vertex oldVertex = new Vertex(0, 0);
-        final Vertex currVertex = new Vertex(0, 0);
+        final Vertex oldVertex = new Vertex();
+        final Vertex currVertex = new Vertex();
         sIsSameMode = false;
         sSameVertexes.clear();
         sVisitedVertexes.clear();
@@ -33,7 +33,7 @@ class Player {
         oldVertex.x = in.nextInt() + 0.5f;
         oldVertex.y = in.nextInt() + 0.5f;
 
-        log("w=" + sWidth + ", h=" + sHeight + ", t=" + turns + ", sx=" + oldVertex.x + ", sy=" + oldVertex.y);
+        log("w=" + sWidth + ", h=" + sHeight + ", t=" + turns);
 
         oldVertex.copyTo(currVertex);
 
@@ -49,7 +49,7 @@ class Player {
         segments.add(new StartOfSegment(sWidth, sHeight, sBottom, sBottom.getSign(testVertex)));
         segments.add(new StartOfSegment(0, sHeight, sLeft, sLeft.getSign(testVertex)));
 
-        final Vertex centerOfMass = new Vertex(0, 0);
+        final Vertex centerOfMass = new Vertex();
 
         // game loop
         while (true) {
@@ -63,7 +63,7 @@ class Player {
             } else {
                 updateMap(BOMBDIST, oldVertex, currVertex, segments);
                 centerOfMass.copyFrom(findCenter(segments));
-                final Vertex nextVertex = findNextVertex(segments, centerOfMass, oldVertex, currVertex);
+                final Vertex nextVertex = findNextVertex(segments, centerOfMass, currVertex);
                 oldVertex.copyFrom(currVertex);
                 currVertex.copyFrom(nextVertex);
             }
@@ -97,13 +97,6 @@ class Player {
             // no crosses
             return;
         }
-
-        //todo remove
-//        for (StartOfSegment s : newShape) {
-//            if (s.linear.getSign(new Vertex(2, 1)) != s.sign) {
-//                throw new IllegalStateException();
-//            }
-//        }
 
         outSegments.clear();
         outSegments.addAll(newShape);
@@ -170,7 +163,7 @@ class Player {
             }
         }
 
-        final Vertex v = new Vertex(0, 0);
+        final Vertex v = new Vertex();
         if (dx == 1) {
             v.x = 0;
             v.y = line.getY(v.x);
@@ -179,8 +172,8 @@ class Player {
             v.x = line.getX(v.y);
         }
 
-        final Vertex tv = new Vertex(0, 0);
-        final Vertex cv = new Vertex(0, 0);
+        final Vertex tv = new Vertex();
+        final Vertex cv = new Vertex();
         while (v.x < sWidth && v.y < sHeight) {
             tv.copyFrom(v);
             round(tv);
@@ -210,7 +203,6 @@ class Player {
     private static Vertex findNextVertex(
             ArrayList<StartOfSegment> segments,
             Vertex center,
-            Vertex prevVertex,
             Vertex lastVertex) {
         if (sIsSameMode) {
             return findNextSameVertex(lastVertex);
@@ -259,24 +251,82 @@ class Player {
             }
         }
 
-        if (optimalVertex == null) {
-            final ArrayList<Vertex> unvisitedInLine = getUnvisitedInLine(Linear.createByVertexes(prevVertex, lastVertex), segments);
-
-            final Vertex first = unvisitedInLine.get(0);
-            final Vertex last = unvisitedInLine.get(unvisitedInLine.size() - 1);
-
-            optimalVertex = first.dst2(lastVertex) > last.dst2(lastVertex) ? first : last;
+        final float area = getArea(segments);
+        final float optimalK = minDifference / area * 100;
+        final Vertex min = new Vertex();
+        final Vertex max = new Vertex();
+        getBound(segments, min, max);
+        final float areaRatio = area / (max.x - min.x) / (max.y - min.y);
+        log("ok=" + optimalK + ", ar=" + areaRatio);
+        if (areaRatio < 0.1f && optimalK > 5) {
+            log("Very thin, min=" + min + ", max=" + max);
+            optimalVertex = findVertexFromThinShape(segments, lastVertex, min, max);
+        } else if (optimalVertex == null) {
+            optimalVertex = findVertexFromThinShape(segments, lastVertex, min, max);
         }
+
+        log("Next vertex: " + optimalVertex);
 
         return optimalVertex;
     }
 
-    private static Vertex tryFindByArea(ArrayList<StartOfSegment> segments) {
-        final float area = getArea(segments);
-        if (area > 20) {
-            return null;
+    private static Vertex findVertexFromThinShape(ArrayList<StartOfSegment> segments, Vertex lastVertex, Vertex min, Vertex max) {
+        Vertex optimalVertex;
+        Vertex farhest = segments.get(0).vertex;
+        float maxDistance = 0;
+        for (StartOfSegment segment : segments) {
+            final float dst2 = lastVertex.dst2(segment.vertex);
+            if (dst2 > maxDistance) {
+                maxDistance = dst2;
+                farhest = segment.vertex;
+            }
         }
 
+        final Vertex topRight = new Vertex(max.x, min.y);
+        final Vertex bottomLeft = new Vertex(min.x, max.y);
+        Vertex corner = min;
+        int dx = 1;
+        int dy = -1;
+        if (farhest.dst2(corner) > farhest.dst2(topRight)) {
+            corner = topRight;
+            dx = -1;
+            dy = -1;
+        }
+        if (farhest.dst2(corner) > farhest.dst2(max)) {
+            corner = max;
+            dx = -1;
+            dy = 1;
+        }
+        if (farhest.dst2(corner) > farhest.dst2(bottomLeft)) {
+            corner = bottomLeft;
+            dx = 1;
+            dy = 1;
+        }
+
+        round(corner);
+        int s = 1;
+        final Vertex v = new Vertex();
+        final Vertex cv = new Vertex();
+        optimalVertex = null;
+        while (optimalVertex == null) {
+            v.copyFrom(corner);
+            v.y = v.y + (s - 1) * -dy;
+            for (int k = 0; k < s; k++) {
+                cv.set((int) v.x, (int) v.y);
+                if (!sVisitedVertexes.contains(cv) && isInside(v, segments)) {
+                    optimalVertex = v;
+                    break;
+                }
+
+                v.x += dx;
+                v.y += dy;
+            }
+            s++;
+        }
+        return optimalVertex;
+    }
+
+    private static void getBound(ArrayList<StartOfSegment> segments, Vertex min, Vertex max) {
         float minX = sWidth;
         float maxX = 0;
         float minY = sHeight;
@@ -289,11 +339,27 @@ class Player {
             maxY = Math.max(maxY, v.y);
         }
 
+        min.x = minX;
+        min.y = minY;
+        max.x = maxX;
+        max.y = maxY;
+    }
+
+    private static Vertex tryFindByArea(ArrayList<StartOfSegment> segments) {
+        final float area = getArea(segments);
+        if (area > 20) {
+            return null;
+        }
+
+        final Vertex min = new Vertex();
+        final Vertex max = new Vertex();
+        getBound(segments, min, max);
+
         final ArrayList<Vertex> vertices = new ArrayList<>();
-        final Vertex v = new Vertex(0, 0);
-        final Vertex cv = new Vertex(0, 0);
-        for (float y = minY; y <= maxY; y++) {
-            for (float x = minX; x <= maxX; x++) {
+        final Vertex v = new Vertex();
+        final Vertex cv = new Vertex();
+        for (float y = min.y; y <= max.y; y++) {
+            for (float x = min.x; x <= max.x; x++) {
                 v.x = x;
                 v.y = y;
                 round(v);
@@ -356,7 +422,7 @@ class Player {
     }
 
     private static Vertex findCenter(ArrayList<StartOfSegment> segments) {
-        final Vertex center = new Vertex(0, 0);
+        final Vertex center = new Vertex();
         float area = 0;
         final Vertex vertex1 = segments.get(0).vertex;
         for (int v = 1; v < segments.size() - 1; v++) {
@@ -490,7 +556,20 @@ class Player {
         public float x;
         public float y;
 
+        public Vertex() {
+            this(0, 0);
+        }
+
         public Vertex(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        public Vertex(Vertex v) {
+            this(v.x, v.y);
+        }
+
+        public void set(int x, int y) {
             this.x = x;
             this.y = y;
         }
