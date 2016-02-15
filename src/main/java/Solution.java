@@ -2,6 +2,8 @@ import java.util.*;
 
 class Solution {
 
+    private static final boolean SHOW_LOGS = true;
+
     private static final HashMap<String, String> LETTERS = new HashMap<>();
 
     static {
@@ -39,23 +41,31 @@ class Solution {
         log(message);
         final int sizeOfDictionary = in.nextInt();
         final String[] dictionary = new String[sizeOfDictionary];
+        int minLength = Integer.MAX_VALUE;
         for (int i = 0; i < sizeOfDictionary; i++) {
             final String word = in.next();
-            log(word);
             final String morse = wordToMorse(word);
+            minLength = Math.min(minLength, morse.length());
             dictionary[i] = morse;
         }
+        log("minLength=" + minLength);
         final int[] possible = new int[message.length() + 1];
         possible[possible.length - 1] = 1;
-        for (int i = possible.length - 2; i > 0; i--) {
-            if (possible[i + 1] == 0) {
+        for (int i = possible.length - 2; i >= 0; i--) {
+            final int countOfVariants = possible[i + 1];
+            if (countOfVariants == 0) {
                 continue;
             }
-            final String sentences = message.substring(0, i + 1);
+            final String sentence = message.substring(0, i + 1);
+            boolean hasSolution = false;
             for (String word : dictionary) {
-                if (sentences.endsWith(word)) {
-                    possible[i - word.length() + 1]++;
+                if (sentence.endsWith(word)) {
+                    possible[i - word.length() + 1] += countOfVariants;
+                    hasSolution = true;
                 }
+            }
+            if (!hasSolution) {
+                break;
             }
         }
 
@@ -69,10 +79,15 @@ class Solution {
             sb.append(LETTERS.get(letter));
         }
 
-        return sb.toString();
+
+        final String morse = sb.toString();
+        log(word + "=" + morse);
+        return morse;
     }
 
     private static void log(String message) {
-        System.err.println(message);
+        if (SHOW_LOGS) {
+            System.err.println(message);
+        }
     }
 }
