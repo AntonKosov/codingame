@@ -20,7 +20,7 @@ public class SolutionTest {
 
     private final LinkedList<String> mOutQueue = new LinkedList<>();
 
-    private int mAnswer;
+    private long mAnswer;
 
     @Before
     public void before() {
@@ -44,6 +44,32 @@ public class SolutionTest {
                         "TEST"
                 },
                 2
+        );
+    }
+
+    @Test(expected = SuccessException.class)
+    public void myTest0() throws Exception {
+        startTest(
+                "....----",
+                new String[] {
+                        "E",
+                        "EE",
+                        "T",
+                        "TT"
+                },
+                25
+        );
+    }
+
+    @Test(expected = SuccessException.class)
+    public void myTest1() throws Exception {
+        startTest(
+                ".........",
+                new String[] {
+                        "E",
+                        "EEE"
+                },
+                19
         );
     }
 
@@ -526,11 +552,11 @@ public class SolutionTest {
                         "WVFDS",
                         "TTXJL"
                 },
-                5
+                57330892800L
         );
     }
 
-    private void startTest(String morse, String[] dictionary, int answer) throws Exception {
+    private void startTest(String morse, String[] dictionary, long answer) throws Exception {
         mOutQueue.clear();
         mOutQueue.add(morse);
         mOutQueue.add(String.valueOf(dictionary.length));
@@ -546,10 +572,10 @@ public class SolutionTest {
         Mockito.doAnswer(invocation -> {
             final String answer1 = invocation.getArguments()[0].toString();
             mOriginalOutPrintStream.println(answer1);
-            Assert.assertEquals(mAnswer, Integer.parseInt(answer1));
+            Assert.assertEquals(mAnswer, Long.parseLong(answer1));
 
             throw new SuccessException();
-        }).when(printStream).println(Mockito.anyInt());
+        }).when(printStream).println(Mockito.anyLong());
         System.setOut(printStream);
 
         Solution.main(null);

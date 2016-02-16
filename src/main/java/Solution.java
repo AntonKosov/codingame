@@ -40,19 +40,21 @@ class Solution {
         final String message = in.next();
         log(message);
         final int sizeOfDictionary = in.nextInt();
-        final String[] dictionary = new String[sizeOfDictionary];
-        int minLength = Integer.MAX_VALUE;
+        final ArrayList<String> dictionary = new ArrayList<>();
+        final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < sizeOfDictionary; i++) {
             final String word = in.next();
-            final String morse = wordToMorse(word);
-            minLength = Math.min(minLength, morse.length());
-            dictionary[i] = morse;
+            sb.setLength(0);
+            for (int j = 0; j < word.length(); j++) {
+                final String letter = word.substring(j, j + 1);
+                sb.append(LETTERS.get(letter));
+            }
+            dictionary.add(sb.toString());
         }
-        log("minLength=" + minLength);
-        final int[] possible = new int[message.length() + 1];
+        final long[] possible = new long[message.length() + 1];
         possible[possible.length - 1] = 1;
         for (int i = possible.length - 2; i >= 0; i--) {
-            final int countOfVariants = possible[i + 1];
+            final long countOfVariants = possible[i + 1];
             if (countOfVariants == 0) {
                 continue;
             }
@@ -70,19 +72,6 @@ class Solution {
         }
 
         System.out.println(possible[0]);
-    }
-
-    private static String wordToMorse(String word) {
-        final StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < word.length(); i++) {
-            final String letter = word.substring(i, i + 1);
-            sb.append(LETTERS.get(letter));
-        }
-
-
-        final String morse = sb.toString();
-        log(word + "=" + morse);
-        return morse;
     }
 
     private static void log(String message) {
