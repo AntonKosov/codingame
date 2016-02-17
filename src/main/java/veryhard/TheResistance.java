@@ -1,6 +1,8 @@
+package veryhard;
+
 import java.util.*;
 
-class Solution {
+class TheResistance {
 
     private static final boolean SHOW_LOGS = false;
 

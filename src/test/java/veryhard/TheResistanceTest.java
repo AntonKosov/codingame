@@ -1,3 +1,5 @@
+package veryhard;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -7,6 +9,7 @@ import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import veryhard.TheResistance;
 
 import java.io.PrintStream;
 import java.util.Collections;
@@ -14,8 +17,8 @@ import java.util.LinkedList;
 import java.util.Scanner;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({Scanner.class, Solution.class})
-public class SolutionTest {
+@PrepareForTest({Scanner.class, TheResistance.class})
+public class TheResistanceTest {
     private PrintStream mOriginalOutPrintStream;
 
     private final LinkedList<String> mOutQueue = new LinkedList<>();
@@ -95,7 +98,7 @@ public class SolutionTest {
         }).when(printStream).println(Mockito.anyLong());
         System.setOut(printStream);
 
-        Solution.main(null);
+        TheResistance.main(null);
     }
 
     private static class SuccessException extends Exception {
