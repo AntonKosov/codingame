@@ -2,7 +2,7 @@ import java.util.*;
 
 class Solution {
 
-    private static final boolean SHOW_LOGS = true;
+    private static final boolean SHOW_LOGS = false;
 
     private static final HashMap<String, String> LETTERS = new HashMap<>();
 
@@ -38,7 +38,6 @@ class Solution {
     public static void main(String args[]) {
         final Scanner in = new Scanner(System.in);
         final String message = in.next();
-        log(message);
         final int sizeOfDictionary = in.nextInt();
         final ArrayList<String> dictionary = new ArrayList<>();
         final StringBuilder sb = new StringBuilder();
@@ -59,15 +58,12 @@ class Solution {
                 continue;
             }
             final String sentence = message.substring(0, i + 1);
-            boolean hasSolution = false;
             for (String word : dictionary) {
                 if (sentence.endsWith(word)) {
-                    possible[i - word.length() + 1] += countOfVariants;
-                    hasSolution = true;
+                    final int index = i - word.length() + 1;
+                    possible[index] += countOfVariants;
+                    log(index + "=" + possible[index]);
                 }
-            }
-            if (!hasSolution) {
-                break;
             }
         }
 
