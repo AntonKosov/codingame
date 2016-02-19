@@ -12,6 +12,9 @@ class Player {
     private static final HashMap<String, Direction> sRooms = new HashMap<>();
     private static final HashMap<String, Integer> sRotations = new HashMap<>();
 
+    private static int sWidth;
+    private static int sHeight;
+
     static {
         sRooms.put("1LEFT", Direction.bottom);
         sRooms.put("1TOP", Direction.bottom);
@@ -60,15 +63,15 @@ class Player {
 
     public static void main(String args[]) {
         final Scanner in = new Scanner(System.in);
-        final int width = in.nextInt(); // number of columns.
-        final int height = in.nextInt(); // number of rows.
+        sWidth = in.nextInt(); // number of columns.
+        sHeight = in.nextInt(); // number of rows.
         in.nextLine();
-        final int[][] map = new int[width][height];
-        for (int i = 0; i < height; i++) {
+        final int[][] map = new int[sWidth][sHeight];
+        for (int i = 0; i < sHeight; i++) {
             final String line = in.nextLine(); // each line represents a line in the grid and contains W integers T. The absolute value of T specifies the type of the room. If T is negative, the room cannot be rotated.
             log(line);
             final String[] split = line.split(" ");
-            for (int c = 0; c < width; c++) {
+            for (int c = 0; c < sWidth; c++) {
                 map[c][i] = Integer.parseInt(split[c]);
             }
         }
@@ -89,7 +92,7 @@ class Player {
             }
             if (path == null) {
                 final Direction direction = iPos.equals("TOP") ? Direction.top : iPos.equals("LEFT") ? Direction.left : Direction.right;
-                path = findPath(map, exit, height, new Node(iX, iY, map[iX][iY], direction, 0, Rotation.none, null));
+                path = findPath(map, exit, new Node(iX, iY, map[iX][iY], direction, 0, Rotation.none, null));
             }
 
             String action = "WAIT";
@@ -124,7 +127,7 @@ class Player {
         }
     }
 
-    private static LinkedList<Node> findPath(int[][] map, int exit, int height, Node currentNode) {
+    private static LinkedList<Node> findPath(int[][] map, int exit, Node currentNode) {
         final PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingInt(n -> -n.cell.y));
         queue.add(currentNode);
         final Cell nextCell = new Cell();
@@ -132,7 +135,7 @@ class Player {
         while (true) {
             final Node node = queue.poll();
             log("Try " + node);
-            if (node.cell.y == height - 1 && node.cell.x == exit) {
+            if (node.cell.y == sHeight - 1 && node.cell.x == exit) {
                 log("It is the exit");
                 pathNode = node;
                 break;
@@ -140,6 +143,10 @@ class Player {
             nextCell.set(node.cell);
             final int currentPositiveCellType = Math.abs(node.cellType);
             getNextCell(currentPositiveCellType, node.in, nextCell);
+            if (nextCell.y > sHeight - 1 || nextCell.x < 0 || nextCell.x > sWidth - 1) {
+                log("impossible: out of range");
+                continue;
+            }
             final Direction nextDirectionIn = getOut(currentPositiveCellType, node.in);
             final int nextCellType = map[nextCell.x][nextCell.y];
             log("Think about: cell " + nextCell + ", in " + nextDirectionIn + ", type " + nextCellType);
