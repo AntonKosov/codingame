@@ -141,16 +141,17 @@ class Player {
             final int currentPositiveCellType = Math.abs(node.cellType);
             getNextCell(currentPositiveCellType, node.in, nextCell);
             final Direction nextDirectionIn = getOut(currentPositiveCellType, node.in);
-            log("next cell " + nextCell + ", next direction " + nextDirectionIn);
             final int nextCellType = map[nextCell.x][nextCell.y];
-            log("next cell type " + nextCellType);
+            log("Think about: cell " + nextCell + ", in " + nextDirectionIn + ", type " + nextCellType);
             if (nextCellType == 0 ||
                     (nextCellType < 0 && !isExistEntrance(nextCellType, nextDirectionIn))) {
                 log("impossible");
                 continue;
             }
             if (isExistEntrance(nextCellType, nextDirectionIn)) {
-                queue.add(new Node(nextCell, nextCellType, nextDirectionIn, node.countTurns + 1, Rotation.none, node));
+                final Node nextNode = new Node(nextCell, nextCellType, nextDirectionIn, node.countTurns + 1, Rotation.none, node);
+                queue.add(nextNode);
+                log("Add to queue: nothing " + nextNode);
             }
             final Integer leftCellType = rotateToLeft(nextCellType);
             if (leftCellType != null && isExistEntrance(leftCellType, nextDirectionIn)) {
@@ -162,12 +163,14 @@ class Player {
             if (rightCellType != null && isExistEntrance(rightCellType, nextDirectionIn)) {
                 final Node rightRotationNode = new Node(nextCell, rightCellType, nextDirectionIn, node.countTurns, Rotation.right, node);
                 queue.add(rightRotationNode);
+                log("Add to queue: right rotation " + rightRotationNode);
             }
             if (node.countTurns > 0 && leftCellType != null) {
                 final Integer dLeftCellType = rotateToLeft(leftCellType);
-                if (dLeftCellType != null) {
+                if (dLeftCellType != null && dLeftCellType != node.cellType && isExistEntrance(dLeftCellType, nextDirectionIn)) {
                     final Node doubleLeftRotationNode = new Node(nextCell, dLeftCellType, nextDirectionIn, node.countTurns - 1, Rotation.doubleLeft, node);
                     queue.add(doubleLeftRotationNode);
+                    log("Add to queue: double left rotation " + doubleLeftRotationNode);
                 }
             }
         }
@@ -185,7 +188,7 @@ class Player {
     }
 
     private static Integer rotateToRight(int cellType) {
-        return sRotations.getOrDefault(cellType + "L", null);
+        return sRotations.getOrDefault(cellType + "R", null);
     }
 
     private static boolean isExistEntrance(int cellType, Direction direction) {
