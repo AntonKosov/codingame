@@ -107,7 +107,7 @@ class Player {
 
             if (rocks.size() > 0 && isCanStopStone(map, currentNode)) {
                 log("try stop stones");
-                action = tryFindRotationForStopStone(map, rocks);
+                action = tryFindRotationForStopStone(map, currentNode, rocks);
             }
 
             if (action.equals(ACTION_WAIT)) {
@@ -118,7 +118,7 @@ class Player {
         }
     }
 
-    private static String tryFindRotationForStopStone(Node[][] map, ArrayList<Rock> rocks) {
+    private static String tryFindRotationForStopStone(Node[][] map, Node currentNode, ArrayList<Rock> rocks) {
         final Cell cell = new Cell();
         for (Rock rock : rocks) {
             cell.set(rock.cell);
@@ -133,10 +133,10 @@ class Player {
                     break;
                 }
                 final Node nextNode = map[cell.x][cell.y];
-                if (!isExistEntrance(nextNode.targetCellType, out.inverse())) {
+                if (nextNode == currentNode || !isExistEntrance(nextNode.targetCellType, out.inverse())) {
                     break;
                 }
-                if (nextNode.cellType != nextNode.targetCellType) {
+                if (nextNode.in != Direction.unknown) {
                     final Integer left = rotateToLeft(nextNode.cellType);
                     int newTargetCellType = nextNode.cellType;
                     if (left != null) {
@@ -155,6 +155,7 @@ class Player {
                     }
 
                     nextNode.targetCellType = newTargetCellType;
+                    log("Target is changed " + nextNode.cell + ", " + nextNode.targetCellType);
 
                     return ACTION_WAIT;
                 } else if (nextNode.cellType > 0) {
@@ -327,7 +328,7 @@ class Player {
             final Node nodeOfMap = map[pathNode.cell.x][pathNode.cell.y];
             nodeOfMap.targetCellType = pathNode.cellType;
             nodeOfMap.in = pathNode.in;
-            log("update " + nodeOfMap.cell + ", in=" + nodeOfMap.in);
+            log("update " + nodeOfMap.cell + ", in=" + nodeOfMap.in + ", cellType=" + nodeOfMap.cellType + ", target ct=" + nodeOfMap.targetCellType);
             pathNode = pathNode.parent;
         }
     }
