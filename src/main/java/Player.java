@@ -101,7 +101,7 @@ class Player {
 
             String action = ACTION_WAIT;
 
-            if (rocks.size() > 0 && isCanStopStone(iX, iY, path)) {
+            if (rocks.size() > 0 && isCanStopStone(path)) {
                 action = tryFindRotationForStopStone(map, rocks);
             }
 
@@ -110,6 +110,8 @@ class Player {
             }
 
             System.out.println(action); // One line containing on of three commands: 'X Y LEFT', 'X Y RIGHT' or 'WAIT'
+
+            path.remove(0);
         }
     }
 
@@ -122,7 +124,7 @@ class Player {
             while (true) {
                 final Direction out = getOut(map[cell.x][cell.y], dirIn);
                 out.getNextCell(cell); // get the next cell
-                log("Next cell " + cell + ", current out " + out);
+//                log("Next cell " + cell + ", current out " + out);
                 if (isNotInsideOfMaze(cell)) {
                     break;
                 }
@@ -141,25 +143,19 @@ class Player {
         return ACTION_WAIT;
     }
 
-    private static boolean isCanStopStone(int iX, int iY, LinkedList<Node> path) {
-        for (int i = 0; i < path.size(); i++) {
-            final Node node = path.get(i);
-            if (node.cell.x == iX && node.cell.y == iY) {
-                if (i < path.size() - 3) {
-                    if (path.get(i + 1).rotation != Rotation.none) {
-                        return false;
-                    }
-                }
-                if (i < path.size() - 4) {
-                    if (path.get(i + 2).rotation == Rotation.doubleLeft) {
-                        return false;
-                    }
-                }
-                return true;
+    private static boolean isCanStopStone(LinkedList<Node> path) {
+        if (path.size() > 2) {
+            if (path.get(1).rotation != Rotation.none) {
+                return false;
+            }
+        }
+        if (path.size() > 3) {
+            if (path.get(2).rotation == Rotation.doubleLeft) {
+                return false;
             }
         }
 
-        throw new IllegalStateException();
+        return true;
     }
 
     private static String tryFindRotationOnPath(int[][] map, LinkedList<Node> path) {
