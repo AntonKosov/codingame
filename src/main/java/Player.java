@@ -224,29 +224,43 @@ class Player {
 //                log("impossible");
                 continue;
             }
+            Direction waitDirOut = null;
             if (isExistEntrance(nextCellType, nextDirectionIn)) {
                 final Node nextNode = new Node(nextCell, nextCellType, nextDirectionIn, node.countTurns + 1, Rotation.none, node);
+                waitDirOut = getOut(nextCellType, nextDirectionIn);
                 queue.add(nextNode);
 //                log("Add to queue: nothing " + nextNode);
             }
             final Integer leftCellType = rotateToLeft(nextCellType);
+            Direction leftDirOut = null;
             if (leftCellType != null && isExistEntrance(leftCellType, nextDirectionIn)) {
-                final Node leftRotationNode = new Node(nextCell, leftCellType, nextDirectionIn, node.countTurns, Rotation.left, node);
-                queue.add(leftRotationNode);
-//                log("Add to queue: left rotation " + leftRotationNode);
+                leftDirOut = getOut(leftCellType, nextDirectionIn);
+                if (leftDirOut != waitDirOut) {
+                    final Node leftRotationNode = new Node(nextCell, leftCellType, nextDirectionIn, node.countTurns, Rotation.left, node);
+                    queue.add(leftRotationNode);
+//                    log("Add to queue: left rotation " + leftRotationNode);
+                }
             }
             final Integer rightCellType = rotateToRight(nextCellType);
-            if (rightCellType != null && isExistEntrance(rightCellType, nextDirectionIn)) {
-                final Node rightRotationNode = new Node(nextCell, rightCellType, nextDirectionIn, node.countTurns, Rotation.right, node);
-                queue.add(rightRotationNode);
-//                log("Add to queue: right rotation " + rightRotationNode);
+            Direction rightDirOut = null;
+            if (rightCellType != null && isExistEntrance(rightCellType, nextDirectionIn) &&
+                    getOut(nextCellType, nextDirectionIn) != getOut(rightCellType, nextDirectionIn)) {
+                rightDirOut = getOut(rightCellType, nextDirectionIn);
+                if (rightDirOut != waitDirOut && rightDirOut != leftDirOut) {
+                    final Node rightRotationNode = new Node(nextCell, rightCellType, nextDirectionIn, node.countTurns, Rotation.right, node);
+                    queue.add(rightRotationNode);
+//                    log("Add to queue: right rotation " + rightRotationNode);
+                }
             }
             if (node.countTurns > 0 && leftCellType != null) {
                 final Integer dLeftCellType = rotateToLeft(leftCellType);
                 if (dLeftCellType != null && dLeftCellType != node.cellType && isExistEntrance(dLeftCellType, nextDirectionIn)) {
-                    final Node doubleLeftRotationNode = new Node(nextCell, dLeftCellType, nextDirectionIn, node.countTurns - 1, Rotation.doubleLeft, node);
-                    queue.add(doubleLeftRotationNode);
-//                    log("Add to queue: double left rotation " + doubleLeftRotationNode);
+                    Direction dLeftDirOut = getOut(dLeftCellType, nextDirectionIn);
+                    if (dLeftDirOut != waitDirOut && dLeftDirOut != leftDirOut && dLeftDirOut != rightDirOut) {
+                        final Node doubleLeftRotationNode = new Node(nextCell, dLeftCellType, nextDirectionIn, node.countTurns - 1, Rotation.doubleLeft, node);
+                        queue.add(doubleLeftRotationNode);
+//                        log("Add to queue: double left rotation " + doubleLeftRotationNode);
+                    }
                 }
             }
         }
