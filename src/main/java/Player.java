@@ -68,18 +68,19 @@ class Player {
         sWidth = in.nextInt(); // number of columns.
         sHeight = in.nextInt(); // number of rows.
         in.nextLine();
-        final int[][] map = new int[sWidth][sHeight];
+        final Node[][] map = new Node[sWidth][sHeight];
         for (int i = 0; i < sHeight; i++) {
             final String line = in.nextLine(); // each line represents a line in the grid and contains W integers T. The absolute value of T specifies the type of the room. If T is negative, the room cannot be rotated.
             log(line);
             final String[] split = line.split(" ");
             for (int c = 0; c < sWidth; c++) {
-                map[c][i] = Integer.parseInt(split[c]);
+                final int cellType = Integer.parseInt(split[c]);
+                map[c][i] = new Node(c, i, cellType, Direction.unknown, 0);
             }
         }
         final int exit = in.nextInt(); // the coordinate along the X axis of the exit.
-        LinkedList<Node> path = null;
         final ArrayList<Rock> rocks = new ArrayList<>();
+        boolean isFirstStep = true;
 
         // game loop
         while (true) {
@@ -94,46 +95,71 @@ class Player {
                 final Direction dir = getDirection(in.next());
                 rocks.add(new Rock(rX, rY, dir));
             }
-            if (path == null) {
-                final Direction direction = getDirection(iPos);
-                path = findPath(map, exit, new Node(iX, iY, map[iX][iY], direction, 0, Rotation.none, null));
+
+            final Node currentNode = map[iX][iY];
+            if (isFirstStep) {
+                isFirstStep = false;
+                currentNode.in = getDirection(iPos);
+                findPath(map, exit, currentNode);
             }
 
             String action = ACTION_WAIT;
 
-            if (rocks.size() > 0 && isCanStopStone(path)) {
+            if (rocks.size() > 0 && isCanStopStone(map, currentNode)) {
+                log("try stop stones");
                 action = tryFindRotationForStopStone(map, rocks);
             }
 
             if (action.equals(ACTION_WAIT)) {
-                action = tryFindRotationOnPath(map, path);
+                action = tryFindRotationOnPath(map, currentNode);
             }
 
             System.out.println(action); // One line containing on of three commands: 'X Y LEFT', 'X Y RIGHT' or 'WAIT'
-
-            path.remove(0);
         }
     }
 
-    private static String tryFindRotationForStopStone(int[][] map, ArrayList<Rock> rocks) {
+    private static String tryFindRotationForStopStone(Node[][] map, ArrayList<Rock> rocks) {
         final Cell cell = new Cell();
         for (Rock rock : rocks) {
             cell.set(rock.cell);
             Direction dirIn = rock.direction;
-            log("Check " + rock);
+//            log("Check " + rock);
             while (true) {
-                final Direction out = getOut(map[cell.x][cell.y], dirIn);
+                final Node node = map[cell.x][cell.y];
+                final Direction out = getOut(node.cellType, dirIn);
                 out.getNextCell(cell); // get the next cell
 //                log("Next cell " + cell + ", current out " + out);
-                if (isNotInsideOfMaze(cell)) {
+                if (!isInsideOfMaze(cell)) {
                     break;
                 }
-                final int cellType = map[cell.x][cell.y];
-                if (!isExistEntrance(cellType, out.inverse())) {
+                final Node nextNode = map[cell.x][cell.y];
+                if (!isExistEntrance(nextNode.targetCellType, out.inverse())) {
                     break;
                 }
-                if (cellType > 0) {
-                    map[cell.x][cell.y] = rotateToLeft(cellType);
+                if (nextNode.cellType != nextNode.targetCellType) {
+                    final Integer left = rotateToLeft(nextNode.cellType);
+                    int newTargetCellType = nextNode.cellType;
+                    if (left != null) {
+                        Direction mustBeOut = getOut(nextNode.cellType, nextNode.in);
+                        Direction block = out.inverse();
+                        if (isNeedCellType(left, nextNode.in, mustBeOut, block)) {
+                            newTargetCellType = left;
+                        } else {
+                            final Integer dLeft = rotateToLeft(left);
+                            if (dLeft != null && isNeedCellType(dLeft, nextNode.in, mustBeOut, block)) {
+                                newTargetCellType = dLeft;
+                            } else {
+                                newTargetCellType = rotateToRight(nextNode.cellType);
+                            }
+                        }
+                    }
+
+                    nextNode.targetCellType = newTargetCellType;
+
+                    return ACTION_WAIT;
+                } else if (nextNode.cellType > 0) {
+                    nextNode.cellType = rotateToLeft(nextNode.cellType);
+                    nextNode.targetCellType = nextNode.cellType;
                     return cell.x + " " + cell.y + " LEFT";
                 }
                 dirIn = out.inverse();
@@ -143,48 +169,81 @@ class Player {
         return ACTION_WAIT;
     }
 
-    private static boolean isCanStopStone(LinkedList<Node> path) {
-        if (path.size() > 2) {
-            if (path.get(1).rotation != Rotation.none) {
-                return false;
-            }
+    private static boolean isNeedCellType(int cellType, Direction in, Direction out, Direction block) {
+        return isExistEntrance(cellType, in) && !isExistEntrance(cellType, block) && out == getOut(cellType, in);
+    }
+
+    private static boolean isCanStopStone(Node[][] map, Node currentNode) {
+        final Node nextNode = getNextNode(map, currentNode);
+        if (nextNode == null) {
+            return true;
         }
-        if (path.size() > 3) {
-            if (path.get(2).rotation == Rotation.doubleLeft) {
-                return false;
+        if (nextNode.cellType != nextNode.targetCellType) {
+            log("isCanStopStone nextNode");
+            return false;
+        }
+
+        final Node afterNextNode = getNextNode(map, nextNode);
+        if (afterNextNode == null) {
+            return true;
+        }
+
+        if (afterNextNode.cellType != afterNextNode.targetCellType) {
+            final Integer left = rotateToLeft(afterNextNode.cellType);
+            if (left != null && left == afterNextNode.targetCellType) {
+                return true;
             }
+
+            final Integer right = rotateToRight(afterNextNode.cellType);
+            if (right != null && right == afterNextNode.targetCellType) {
+                return true;
+            }
+
+            return false;
         }
 
         return true;
     }
 
-    private static String tryFindRotationOnPath(int[][] map, LinkedList<Node> path) {
-        for (int i = 0; i < path.size(); i++) {
-            final Node node = path.get(i);
-            if (node.rotation != Rotation.none) {
-                String action = node.cell.x + " " + node.cell.y + " ";
-                final int oldCellType = map[node.cell.x][node.cell.y];
-                final Node newNode;
+    private static Node getNextNode(Node[][] map, Node currentNode) {
+        final Direction outFromCurrentNode = getOut(currentNode.cellType, currentNode.in);
+        final Cell cell = new Cell(currentNode.cell);
+        outFromCurrentNode.getNextCell(cell);
+        if (!isInsideOfMaze(cell)) {
+            return null;
+        }
+        return map[cell.x][cell.y];
+    }
+
+    private static String tryFindRotationOnPath(Node[][] map, Node currentNode) {
+        final Cell cell = new Cell(currentNode.cell);
+        while (isInsideOfMaze(cell)) {
+            final Node node = map[cell.x][cell.y];
+            if (node.cellType != node.targetCellType) {
+                String action = cell.x + " " + cell.y + " ";
                 final int newCellType;
-                if (node.rotation == Rotation.left) {
+                final Integer left = rotateToLeft(node.cellType);
+                if (left != null && left == node.targetCellType) {
                     action += "LEFT";
-                    newCellType = rotateToLeft(oldCellType);
-                    newNode = new Node(node.cell, newCellType, node.in, 0, Rotation.none, node.parent);
-                } else if (node.rotation == Rotation.right) {
-                    action += "RIGHT";
-                    newCellType = rotateToRight(oldCellType);
-                    newNode = new Node(node.cell, newCellType, node.in, 0, Rotation.none, node.parent);
+                    newCellType = left;
                 } else {
-                    action += "LEFT";
-                    newCellType = rotateToLeft(oldCellType);
-                    newNode = new Node(node.cell, newCellType, node.in, 0, Rotation.left, node.parent);
+                    final Integer right = rotateToRight(node.cellType);
+                    if (right != null && right == node.targetCellType) {
+                        action += "RIGHT";
+                        newCellType = right;
+                    } else {
+                        action += "LEFT";
+                        newCellType = left;
+                    }
                 }
-                map[node.cell.x][node.cell.y] = newCellType;
-                path.remove(i);
-                path.add(i, newNode);
+                node.cellType = newCellType;
                 return action;
             }
+
+            final Direction out = getOut(node.cellType, node.in);
+            out.getNextCell(cell);
         }
+
         return ACTION_WAIT;
     }
 
@@ -192,68 +251,71 @@ class Player {
         return position.equals("TOP") ? Direction.top : position.equals("LEFT") ? Direction.left : Direction.right;
     }
 
-    private static LinkedList<Node> findPath(int[][] map, int exit, Node currentNode) {
+    private static void findPath(Node[][] map, int exit, Node currentNode) {
         final PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingInt(n -> -n.cell.y));
         queue.add(currentNode);
         final Cell nextCell = new Cell();
         Node pathNode;
         while (true) {
             final Node node = queue.poll();
-//            log("Try " + node);
+            log("Try " + node);
             if (node.cell.y == sHeight - 1 && node.cell.x == exit) {
-//                log("It is the exit");
+                log("It is the exit");
                 pathNode = node;
                 break;
             }
             nextCell.set(node.cell);
-            final int currentPositiveCellType = Math.abs(node.cellType);
-            getNextCell(currentPositiveCellType, node.in, nextCell);
-            if (isNotInsideOfMaze(nextCell)) {
+            getNextCell(node.cellType, node.in, nextCell);
+            if (!isInsideOfMaze(nextCell)) {
 //                log("impossible: out of range");
                 continue;
             }
-            final Direction nextDirectionIn = getOut(currentPositiveCellType, node.in).inverse();
-            final int nextCellType = map[nextCell.x][nextCell.y];
+            final Direction nextIn = getOut(node.cellType, node.in).inverse();
+            final Node nextNode = map[nextCell.x][nextCell.y];
 //            log("Think about: cell " + nextCell + ", in " + nextDirectionIn + ", type " + nextCellType);
-            if (nextCellType == 0 ||
-                    (nextCellType < 0 && !isExistEntrance(nextCellType, nextDirectionIn))) {
+            if (nextNode.cellType == 0 ||
+                    (nextNode.cellType < 0 && !isExistEntrance(nextNode.cellType, nextIn))) {
 //                log("impossible");
                 continue;
             }
             Direction waitDirOut = null;
-            if (isExistEntrance(nextCellType, nextDirectionIn)) {
-                final Node nextNode = new Node(nextCell, nextCellType, nextDirectionIn, node.countTurns + 1, Rotation.none, node);
-                waitDirOut = getOut(nextCellType, nextDirectionIn);
-                queue.add(nextNode);
+            if (isExistEntrance(nextNode.cellType, nextIn)) {
+                final Node waitNode = new Node(nextCell, nextNode.cellType, nextIn, node.countTurns + 1);
+                waitNode.parent = node;
+                waitDirOut = getOut(waitNode.cellType, nextIn);
+                queue.add(waitNode);
 //                log("Add to queue: nothing " + nextNode);
             }
-            final Integer leftCellType = rotateToLeft(nextCellType);
+            final Integer leftCellType = rotateToLeft(nextNode.cellType);
             Direction leftDirOut = null;
-            if (leftCellType != null && isExistEntrance(leftCellType, nextDirectionIn)) {
-                leftDirOut = getOut(leftCellType, nextDirectionIn);
+            if (leftCellType != null && isExistEntrance(leftCellType, nextIn)) {
+                leftDirOut = getOut(leftCellType, nextIn);
                 if (leftDirOut != waitDirOut) {
-                    final Node leftRotationNode = new Node(nextCell, leftCellType, nextDirectionIn, node.countTurns, Rotation.left, node);
+                    final Node leftRotationNode = new Node(nextCell, leftCellType, nextIn, node.countTurns);
+                    leftRotationNode.parent = node;
                     queue.add(leftRotationNode);
 //                    log("Add to queue: left rotation " + leftRotationNode);
                 }
             }
-            final Integer rightCellType = rotateToRight(nextCellType);
+            final Integer rightCellType = rotateToRight(nextNode.cellType);
             Direction rightDirOut = null;
-            if (rightCellType != null && isExistEntrance(rightCellType, nextDirectionIn) &&
-                    getOut(nextCellType, nextDirectionIn) != getOut(rightCellType, nextDirectionIn)) {
-                rightDirOut = getOut(rightCellType, nextDirectionIn);
+            if (rightCellType != null && isExistEntrance(rightCellType, nextIn) &&
+                    getOut(nextNode.cellType, nextIn) != getOut(rightCellType, nextIn)) {
+                rightDirOut = getOut(rightCellType, nextIn);
                 if (rightDirOut != waitDirOut && rightDirOut != leftDirOut) {
-                    final Node rightRotationNode = new Node(nextCell, rightCellType, nextDirectionIn, node.countTurns, Rotation.right, node);
+                    final Node rightRotationNode = new Node(nextCell, rightCellType, nextIn, node.countTurns);
+                    rightRotationNode.parent = node;
                     queue.add(rightRotationNode);
 //                    log("Add to queue: right rotation " + rightRotationNode);
                 }
             }
-            if (node.countTurns > 0 && leftCellType != null) {
+            if (node.countTurns > 1 && leftCellType != null) {
                 final Integer dLeftCellType = rotateToLeft(leftCellType);
-                if (dLeftCellType != null && dLeftCellType != node.cellType && isExistEntrance(dLeftCellType, nextDirectionIn)) {
-                    Direction dLeftDirOut = getOut(dLeftCellType, nextDirectionIn);
+                if (dLeftCellType != null && dLeftCellType != node.cellType && isExistEntrance(dLeftCellType, nextIn)) {
+                    Direction dLeftDirOut = getOut(dLeftCellType, nextIn);
                     if (dLeftDirOut != waitDirOut && dLeftDirOut != leftDirOut && dLeftDirOut != rightDirOut) {
-                        final Node doubleLeftRotationNode = new Node(nextCell, dLeftCellType, nextDirectionIn, node.countTurns - 1, Rotation.doubleLeft, node);
+                        final Node doubleLeftRotationNode = new Node(nextCell, dLeftCellType, nextIn, node.countTurns - 1);
+                        doubleLeftRotationNode.parent = node;
                         queue.add(doubleLeftRotationNode);
 //                        log("Add to queue: double left rotation " + doubleLeftRotationNode);
                     }
@@ -261,16 +323,17 @@ class Player {
             }
         }
 
-        final LinkedList<Node> path = new LinkedList<>();
         while (pathNode != null) {
-            path.add(0, pathNode);
+            final Node nodeOfMap = map[pathNode.cell.x][pathNode.cell.y];
+            nodeOfMap.targetCellType = pathNode.cellType;
+            nodeOfMap.in = pathNode.in;
+            log("update " + nodeOfMap.cell + ", in=" + nodeOfMap.in);
             pathNode = pathNode.parent;
         }
-        return path;
     }
 
-    private static boolean isNotInsideOfMaze(Cell nextCell) {
-        return nextCell.y > sHeight - 1 || nextCell.x < 0 || nextCell.x > sWidth - 1;
+    private static boolean isInsideOfMaze(Cell cell) {
+        return cell.y <= sHeight - 1 && cell.x >= 0 && cell.x <= sWidth - 1;
     }
 
     private static Integer rotateToLeft(int cellType) {
@@ -286,7 +349,7 @@ class Player {
     }
 
     private static void getNextCell(int cellType, Direction in, Cell out) {
-        final Direction direction = sRooms.get(cellType + in.getText());
+        final Direction direction = sRooms.get(Math.abs(cellType) + in.getText());
         direction.getNextCell(out);
     }
 
@@ -300,14 +363,24 @@ class Player {
         }
     }
 
-    private enum Rotation {
-        none,
-        left,
-        right,
-        doubleLeft
-    }
-
     private enum Direction {
+        unknown {
+            @Override
+            void getNextCell(Cell cell) {
+                throw new IllegalStateException();
+            }
+
+            @Override
+            String getText() {
+                throw new IllegalStateException();
+            }
+
+            @Override
+            Direction inverse() {
+                throw new IllegalStateException();
+            }
+        },
+
         top {
             @Override
             void getNextCell(Cell cell) {
@@ -389,6 +462,10 @@ class Player {
             this(0, 0);
         }
 
+        public Cell(Cell cell) {
+            this(cell.x, cell.y);
+        }
+
         public Cell(int x, int y) {
             this.x = x;
             this.y = y;
@@ -408,24 +485,23 @@ class Player {
     private static class Node {
 
         public final Cell cell = new Cell();
-        public final Direction in;
-        public final Node parent;
-        public final int cellType;
-        public final Rotation rotation;
+        public Direction in;
+        public int cellType;
+        public int targetCellType;
         public int countTurns;
+        public Node parent;
 
-        public Node(Cell cell, int cellType, Direction in, int countTurns, Rotation rotation, Node parent) {
-            this(cell.x, cell.y, cellType, in, countTurns, rotation, parent);
+        public Node(Cell cell, int cellType, Direction in, int countTurns) {
+            this(cell.x, cell.y, cellType, in, countTurns);
         }
 
-        public Node(int x, int y, int cellType, Direction in, int countTurns, Rotation rotation, Node parent) {
+        public Node(int x, int y, int cellType, Direction in, int countTurns) {
             cell.x = x;
             cell.y = y;
             this.cellType = cellType;
             this.in = in;
             this.countTurns = countTurns;
-            this.rotation = rotation;
-            this.parent = parent;
+            targetCellType = cellType;
         }
 
         @Override
