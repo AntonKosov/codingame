@@ -1,6 +1,8 @@
+package hard;
+
 import java.util.*;
 
-class Player {
+class IndianaLevel2 {
 
     private static final boolean SHOW_LOGS = true;
 
