@@ -77,7 +77,10 @@ class Player {
             log(line);
             final String[] split = line.split(" ");
             for (int c = 0; c < sWidth; c++) {
-                final int cellType = Integer.parseInt(split[c]);
+                int cellType = Integer.parseInt(split[c]);
+                if (cellType == 1) {
+                    cellType = -1;
+                }
                 map[c][i] = new Node(c, i, -1, cellType, Direction.unknown, 0);
             }
         }
