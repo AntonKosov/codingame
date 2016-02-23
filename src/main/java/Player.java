@@ -4,9 +4,6 @@ class Player {
 
     private static final boolean SHOW_LOGS = true;
 
-    private static final String ACTION_WAIT = "WAIT";
-    private static final String ACTION_NEED_NEW_PATH = "NEW_PATH";
-
     private static final String TOP = "TOP";
     private static final String LEFT = "LEFT";
     private static final String RIGHT = "RIGHT";
@@ -18,7 +15,7 @@ class Player {
     private static int sWidth;
     private static int sHeight;
 
-    private static final HashSet<Cell> sBlackListOfCells = new HashSet<>();
+    private static final HashSet<BlockCell> sBlackListOfCells = new HashSet<>();
 
     static {
         sRooms.put("1LEFT", Direction.bottom);
@@ -104,16 +101,16 @@ class Player {
 
             final Node currentNode = map[iX][iY];
 
-            String action = ACTION_WAIT;
+            Action action = new Action(0, 0, Act.wait);
             do {
-                if (action.equals(ACTION_NEED_NEW_PATH)) {
-                    action = ACTION_WAIT;
+                if (action.act == Act.newPath) {
+                    action.act = Act.wait;
                     isFirstStep = true;
                     for (int x = 0; x < sWidth; x++) {
                         for (int y = 0; y < sHeight; y++) {
                             final Node node = map[x][y];
                             node.targetCellType = node.cellType;
-                            node.step = -1;
+                            node.step = node == currentNode ? currentNode.step : -1;
                             node.in = Direction.unknown;
                         }
                     }
@@ -122,38 +119,55 @@ class Player {
                     isFirstStep = false;
                     currentNode.in = getDirection(iPos);
                     currentNode.step = 0;
-                    findPath(map, exit, currentNode);
+                    findPath(map, exit, sHeight - 1, currentNode);
                 }
 
                 if (rocks.size() > 0 && isCanStopStone(map, currentNode)) {
                     action = tryFindRotationForStopStone(map, currentNode, rocks, currentNode.step);
                     log("try stop stones, result=" + action);
                 }
-            } while (action.equals(ACTION_NEED_NEW_PATH));
+            } while (action.act == Act.newPath);
 
-            if (action.equals(ACTION_WAIT)) {
+            if (action.act == Act.wait) {
                 action = tryFindRotationOnPath(map, currentNode);
             }
 
-            System.out.println(action); // One line containing on of three commands: 'X Y LEFT', 'X Y RIGHT' or 'WAIT'
+            String actionText;
+            if (action.act == Act.wait) {
+                actionText = "WAIT";
+            } else {
+                actionText = action.x + " " + action.y + " ";
+                final Node node = map[action.x][action.y];
+                if (action.act == Act.left) {
+                    actionText += "LEFT";
+                    node.cellType = rotateToLeft(node.cellType);
+                } else {
+                    actionText += "RIGHT";
+                    node.cellType = rotateToRight(node.cellType);
+                }
+                if (node.step < 0) {
+                    //stone
+                    node.targetCellType = node.cellType;
+                }
+            }
+            System.out.println(actionText); // One line containing on of three commands: 'X Y LEFT', 'X Y RIGHT' or 'WAIT'
         }
     }
 
-    private static String tryFindRotationForStopStone(Node[][] map, Node currentNode, ArrayList<Rock> rocks, int startStep) {
+    private static Action tryFindRotationForStopStone(Node[][] map, Node currentNode, ArrayList<Rock> rocks, int startStep) {
         final ArrayList<ArrayList<StonePath>> paths = new ArrayList<>();
         for (Rock rock : rocks) {
             final ArrayList<StonePath> stonePath = getStonePath(map, rock, startStep);
-            log("path=" + stonePath.size());
+//            log("path=" + stonePath.size());
 
-            final StonePath last = stonePath.get(stonePath.size() - 1);
-            if (last.step != last.node.step || stonePath.size() == 1) {
+            if (stonePath.size() <= 1) {
                 continue;
             }
 
             paths.add(stonePath);
         }
 
-        log("Stone paths: " + paths.size());
+//        log("Stone paths: " + paths.size());
 
         final HashSet<Integer> safeStones = new HashSet<>();
         for (int i = 0; i < paths.size() - 1; i++) {
@@ -173,6 +187,8 @@ class Player {
             }
         }
 
+        Action action = new Action(0, 0, Act.wait);
+
         for (int i = 0; i < paths.size(); i++) {
             final ArrayList<StonePath> stonePath = paths.get(i);
             final String stoneId = stonePath.get(0).node.cell.toString();
@@ -184,7 +200,7 @@ class Player {
             int countRotatable = 0;
             for (int j = 1; j < stonePath.size(); j++) {
                 final StonePath sp = stonePath.get(j);
-                if (sp.node.cellType > 0) {
+                if (sp.node.cellType > 0 && sp.node != currentNode) {
                     countRotatable++;
                 }
             }
@@ -192,17 +208,12 @@ class Player {
 
             final StonePath last = stonePath.get(stonePath.size() - 1);
             final StonePath second = stonePath.get(1);
-            if (countRotatable == 0) {
-                for (StonePath sp : stonePath) {
-                    if (sp.node.step > 0) {
-                        log("Need new path: " + sp.node.cell);
-                        sBlackListOfCells.add(sp.node.cell);
-                        return ACTION_NEED_NEW_PATH;
-                    }
-                }
-            } else if (countRotatable == 1 && last.node.cellType > 0) {
+            if (countRotatable == 0 && last.node.step > 0) {
+                return tryDestroyStoneOrNewSearch(map, paths, i);
+            } else if (countRotatable == 1 && last.node.targetCellType > 0 && last.node.step == last.step) {
                 final Direction in = last.node.in;
-                final Direction out = getOut(last.node.cellType, in);
+                log("looking for out " + last.node.cell + ", in " + in);
+                final Direction out = getOut(last.node.targetCellType, in);
                 final Direction blockIn = last.in;
                 if (!isNeedCellType(last.node.targetCellType, in, out, blockIn)) {
                     final Integer left = rotateToLeft(last.node.targetCellType);
@@ -231,13 +242,59 @@ class Player {
                     }
                 }
             } else if (countRotatable == 1 && second.node.cellType > 0) {
-                second.node.cellType = rotateToLeft(second.node.cellType);
-                second.node.targetCellType = second.node.cellType;
-                return second.node.cell.x + " " + second.node.cell.y + " " + LEFT;
+                action = new Action(second.node.cell.x, second.node.cell.y, Act.left);
             }
         }
 
-        return ACTION_WAIT;
+        return action;
+    }
+
+    private static Action tryDestroyStoneOrNewSearch(Node[][] map, ArrayList<ArrayList<StonePath>> paths, int needDestroy) {
+        log("tryDestroyStoneOrNewSearch");
+        final ArrayList<StonePath> badStone = paths.get(needDestroy);
+        for (int i = 0; i < paths.size(); i++) {
+            if (i == needDestroy) {
+                continue;
+            }
+            final ArrayList<StonePath> path = paths.get(i);
+            final StonePath first = path.get(0);
+            for (StonePath sp : badStone) {
+                if (sp.node.cell.y >= first.node.cell.y) {
+                    final Node startNode = new Node(first.node.cell, first.step, first.node.cellType, first.in, 0);
+                    Node pathToCell = findPathToCell(map, sp.node.cell.x, sp.node.cell.y, startNode, sp.step);
+                    if (pathToCell != null) {
+                        while (pathToCell != null) {
+                            log("tryDestroyStoneOrNewSearch " + pathToCell.cell);
+                            final Node node = map[pathToCell.cell.x][pathToCell.cell.y];
+                            if (pathToCell.targetCellType != node.targetCellType) {
+                                final Integer left = rotateToLeft(node.cellType);
+                                if (left != null && left == pathToCell.targetCellType) {
+                                    return new Action(node.cell.x, node.cell.y, Act.left);
+                                }
+                                final Integer right = rotateToRight(node.cellType);
+                                if (right != null && right == pathToCell.targetCellType) {
+                                    return new Action(node.cell.x, node.cell.y, Act.right);
+                                }
+                                // double left
+                                return new Action(node.cell.x, node.cell.y, Act.left);
+                            }
+                            pathToCell = pathToCell.parent;
+                        }
+                        throw new IllegalStateException();
+                    }
+                }
+            }
+        }
+
+        for (StonePath sp : paths.get(needDestroy)) {
+            if (sp.node.step > 0) {
+                log("Need new path: " + sp.node.cell);
+                sBlackListOfCells.add(new BlockCell(sp.node.cell, sp.node.step));
+                return new Action(0, 0, Act.newPath);
+            }
+        }
+
+        throw new IllegalStateException();
     }
 
     private static ArrayList<StonePath> getStonePath(Node[][] map, Rock rock, int step) {
@@ -246,7 +303,7 @@ class Player {
         ArrayList<StonePath> stonePath = new ArrayList<>();
         while (isInsideOfMaze(cell)) {
             final Node node = map[cell.x][cell.y];
-            log("Stone path: " + node.cell + ", in=" + in + ", ct=" + node.targetCellType);
+            //log("Stone path: " + node.cell + ", in=" + in + ", ct=" + node.targetCellType);
             if (!isExistEntrance(node.targetCellType, in)) {
                 log("Stone path: no entrance, c=" + node.cell + ", in=" + in);
                 break;
@@ -277,7 +334,7 @@ class Player {
             return true;
         }
         if (nextNode.cellType != nextNode.targetCellType) {
-            log("isCanStopStone nextNode");
+            //log("isCanStopStone nextNode");
             return false;
         }
 
@@ -304,6 +361,7 @@ class Player {
     }
 
     private static Node getNextNode(Node[][] map, Node currentNode) {
+        //log("getNextNode " + currentNode.cell + ", in " + currentNode.in);
         final Direction outFromCurrentNode = getOut(currentNode.cellType, currentNode.in);
         final Cell cell = new Cell(currentNode.cell);
         outFromCurrentNode.getNextCell(cell);
@@ -313,60 +371,81 @@ class Player {
         return map[cell.x][cell.y];
     }
 
-    private static String tryFindRotationOnPath(Node[][] map, Node currentNode) {
+    private static Action tryFindRotationOnPath(Node[][] map, Node currentNode) {
         final Cell cell = new Cell(currentNode.cell);
         while (isInsideOfMaze(cell)) {
             final Node node = map[cell.x][cell.y];
             if (node.cellType != node.targetCellType) {
-                String action = cell.x + " " + cell.y + " ";
-                final int newCellType;
                 final Integer left = rotateToLeft(node.cellType);
+                Act act;
                 if (left != null && left == node.targetCellType) {
-                    action += "LEFT";
-                    newCellType = left;
+                    act = Act.left;
                 } else {
                     final Integer right = rotateToRight(node.cellType);
                     if (right != null && right == node.targetCellType) {
-                        action += "RIGHT";
-                        newCellType = right;
+                        act = Act.right;
                     } else {
-                        action += "LEFT";
-                        newCellType = left;
+                        act = Act.left;
                     }
                 }
-                node.cellType = newCellType;
-                return action;
+                return new Action(cell.x, cell.y, act);
             }
 
             final Direction out = getOut(node.cellType, node.in);
             out.getNextCell(cell);
         }
 
-        return ACTION_WAIT;
+        return new Action(0, 0, Act.wait);
     }
 
     private static Direction getDirection(String position) {
         return position.equals("TOP") ? Direction.top : position.equals("LEFT") ? Direction.left : Direction.right;
     }
 
-    private static void findPath(Node[][] map, int exit, Node currentNode) {
+    private static void findPath(Node[][] map, int targetX, int targetY, Node currentNode) {
+        Node pathNode = findPathToCell(map, targetX, targetY, currentNode, null);
+
+        while (pathNode != null) {
+            final Node nodeOfMap = map[pathNode.cell.x][pathNode.cell.y];
+            nodeOfMap.targetCellType = pathNode.cellType;
+            nodeOfMap.in = pathNode.in;
+            nodeOfMap.step = pathNode.step;
+            //log("update " + nodeOfMap.cell + ", in=" + nodeOfMap.in + ", cellType=" + nodeOfMap.cellType + ", targetCellType=" + nodeOfMap.targetCellType);
+            pathNode = pathNode.parent;
+        }
+    }
+
+    private static Node findPathToCell(Node[][] map, int targetX, int targetY, Node currentNode, Integer targetStep) {
         final PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingInt(n -> -n.cell.y));
         queue.add(currentNode);
         final Cell nextCell = new Cell();
         Node pathNode;
+        final BlockCell blockCell = new BlockCell(null, 0);
         while (true) {
             final Node node = queue.poll();
-            log("Try " + node);
-            if (node.cell.y == sHeight - 1 && node.cell.x == exit) {
-                log("It is the exit");
+            if (node == null) {
+                return null;
+            }
+            if (node.cell.y > targetY) {
+                continue;
+            }
+//            log("Try " + node);
+            if (node.cell.y == targetY && node.cell.x == targetX && (targetStep == null || node.step == targetStep)) {
+                log("It is the solution");
                 pathNode = node;
                 break;
             }
             nextCell.set(node.cell);
             getNextCell(node.cellType, node.in, nextCell);
-            if (!isInsideOfMaze(nextCell) || sBlackListOfCells.contains(nextCell)) {
+            if (!isInsideOfMaze(nextCell)) {
                 continue;
             }
+            blockCell.cell = node.cell;
+            blockCell.step = node.step;
+            if (sBlackListOfCells.contains(blockCell)) {
+                continue;
+            }
+
             final Direction nextIn = getOut(node.cellType, node.in).inverse();
             final Node nextNode = map[nextCell.x][nextCell.y];
 //            log("Think about: cell " + nextCell + ", in " + nextDirectionIn + ", type " + nextCellType);
@@ -420,14 +499,7 @@ class Player {
             }
         }
 
-        while (pathNode != null) {
-            final Node nodeOfMap = map[pathNode.cell.x][pathNode.cell.y];
-            nodeOfMap.targetCellType = pathNode.cellType;
-            nodeOfMap.in = pathNode.in;
-            nodeOfMap.step = pathNode.step;
-            log("update " + nodeOfMap.cell + ", in=" + nodeOfMap.in + ", cellType=" + nodeOfMap.cellType + ", target ct=" + nodeOfMap.targetCellType);
-            pathNode = pathNode.parent;
-        }
+        return pathNode;
     }
 
     private static boolean isInsideOfMaze(Cell cell) {
@@ -651,5 +723,50 @@ class Player {
         public String toString() {
             return cell + ", " + in;
         }
+    }
+
+    private static class BlockCell {
+        public Cell cell;
+        public int step;
+
+        private BlockCell(Cell cell, int step) {
+            this.cell = cell;
+            this.step = step;
+        }
+
+        @Override
+        public int hashCode() {
+            return cell.hashCode() + step;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj instanceof BlockCell) {
+                final BlockCell bc = (BlockCell) obj;
+                return cell.equals(bc.cell) && step == bc.step;
+            }
+            return false;
+        }
+    }
+
+    private static class Action {
+        public final int x;
+        public final int y;
+        public Act act;
+
+        public Action(int x, int y, Act act) {
+            this.x = x;
+            this.y = y;
+            this.act = act;
+        }
+
+        @Override
+        public String toString() {
+            return act == Act.wait ? "WAIT" : act == Act.newPath ? "NEW_PATH" : (x + " " + y + (act == Act.left ? " LEFT" : " RIGHT"));
+        }
+    }
+
+    private static enum Act {
+        wait, left, right, newPath
     }
 }
