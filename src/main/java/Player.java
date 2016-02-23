@@ -118,7 +118,7 @@ class Player {
                 if (isFirstStep) {
                     isFirstStep = false;
                     currentNode.in = getDirection(iPos);
-                    currentNode.step = 0;
+                    currentNode.step = currentNode.step > 0 ? currentNode.step : 0;
                     findPath(map, exit, sHeight - 1, currentNode);
                 }
 
@@ -150,6 +150,7 @@ class Player {
                     node.targetCellType = node.cellType;
                 }
             }
+            log("step=" + currentNode.step);
             System.out.println(actionText); // One line containing on of three commands: 'X Y LEFT', 'X Y RIGHT' or 'WAIT'
         }
     }
@@ -208,7 +209,7 @@ class Player {
 
             final StonePath last = stonePath.get(stonePath.size() - 1);
             final StonePath second = stonePath.get(1);
-            if (countRotatable == 0 && last.node.step > 0) {
+            if (countRotatable == 0 && last.node.step == last.step) {
                 return tryDestroyStoneOrNewSearch(map, paths, i);
             } else if (countRotatable == 1 && last.node.targetCellType > 0 && last.node.step == last.step) {
                 final Direction in = last.node.in;
@@ -250,8 +251,8 @@ class Player {
     }
 
     private static Action tryDestroyStoneOrNewSearch(Node[][] map, ArrayList<ArrayList<StonePath>> paths, int needDestroy) {
-        log("tryDestroyStoneOrNewSearch");
         final ArrayList<StonePath> badStone = paths.get(needDestroy);
+        log("tryDestroyStoneOrNewSearch, bad stone " + badStone.get(badStone.size() - 1).node.cell);
         for (int i = 0; i < paths.size(); i++) {
             if (i == needDestroy) {
                 continue;
@@ -287,9 +288,10 @@ class Player {
         }
 
         for (StonePath sp : paths.get(needDestroy)) {
-            if (sp.node.step > 0) {
-                log("Need new path: " + sp.node.cell);
-                sBlackListOfCells.add(new BlockCell(sp.node.cell, sp.node.step));
+            if (sp.node.step == sp.step) {
+                final BlockCell blockCell = new BlockCell(sp.node.cell, sp.node.step);
+                log("Need new path: " + blockCell + ", targetStep=" + sp.step);
+                sBlackListOfCells.add(blockCell);
                 return new Action(0, 0, Act.newPath);
             }
         }
@@ -732,6 +734,11 @@ class Player {
         private BlockCell(Cell cell, int step) {
             this.cell = cell;
             this.step = step;
+        }
+
+        @Override
+        public String toString() {
+            return cell + ", s=" + step;
         }
 
         @Override
