@@ -55,12 +55,10 @@ class Player {
     private static LinkedList<String> getAnswer(Cell[][] map, int rounds, int bombs, int countNodes) {
         final ArrayList<Cell> usefulCells = getUsefulCells(map);
         final LinkedList<String> answers = new LinkedList<>();
-        final HashSet<Integer> uselessCells = new HashSet<>();
         for (Cell cell : usefulCells) {
             if (cell.obj instanceof Empty) {
-                uselessCells.clear();
                 log("------ " + cell.canDestroy);
-                if (findSolution(map, rounds, bombs, cell, uselessCells, countNodes, 0, answers)) {
+                if (findSolution(map, rounds, bombs, cell, countNodes, 0, answers)) {
                     answers.push(cell.x + " " + cell.y);
                     return answers;
                 }
@@ -73,7 +71,6 @@ class Player {
     private static boolean findSolution(
             Cell[][] map, int rounds, int bombs,
             Cell cellForBomb,
-            HashSet<Integer> uselessCells,
             int goodNodes,
             int destroyingNodes,
             LinkedList<String> answers) {
@@ -84,16 +81,13 @@ class Player {
 
         if (cellForBomb != null) {
             log("Try next " + cellForBomb + ", rounds=" + rounds);
-        } else {
-            log("wait rounds=" + rounds + ", b=" + bombs);
-        }
-
-        ArrayList<Cell> usefulCells = null;
-        if ((bombs > 1 && cellForBomb != null) || (bombs > 0 && cellForBomb == null)) {
-            usefulCells = getUsefulCells(map);
         }
 
         destroyingNodes -= doAction(map);
+        log("dn=" + destroyingNodes + ", gn=" + goodNodes + ", rounds=" + rounds + ", bombs=" + bombs);
+        if (map[3][2].obj instanceof Bomb) {
+            log("BOMB (3, 2) " + ((Bomb) map[3][2].obj).mLeftTurns);
+        }
 
         if (destroyingNodes == 0 && goodNodes == 0) {
             answers.push(ACTION_WAIT);
@@ -101,7 +95,8 @@ class Player {
             return true;
         }
 
-        if (usefulCells != null) {
+        if ((bombs > 1 && cellForBomb != null) || (bombs > 0 && cellForBomb == null)) {
+            ArrayList<Cell> usefulCells = getUsefulCells(map);
             int countNodes = 0;
             int iB = 0;
             for (Cell cell : usefulCells) {
@@ -112,58 +107,49 @@ class Player {
                 }
             }
             if (goodNodes - countNodes > 0) {
-                log("no solution " + cellForBomb + ", gn=" + goodNodes + ", cn=" + countNodes /*+ ", block" + cellForBomb*/);
-                //uselessCells.add(getUselessCellId(cellForBomb));
+                log("no solution " + cellForBomb + ", gn=" + goodNodes + ", cn=" + countNodes);
                 return false;
             }
         }
 
-        Obj[][] copy = null;
-        try {
-            if (cellForBomb != null) {
-                copy = createCopy(map);
-                cellForBomb.obj = new Bomb();
-                for (Cell n : cellForBomb.reachableCells) {
-                    if (n.obj instanceof Node) {
-                        n.obj = new DestroyingNode();
-                    }
-                }
-                bombs--;
-                goodNodes -= cellForBomb.canDestroy;
-                destroyingNodes += cellForBomb.canDestroy;
-                log("dn=" + destroyingNodes + ", gn=" + goodNodes);
-            }
-
-            if (bombs > 0) {
-                usefulCells = getUsefulCells(map);
-                for (Cell cell : usefulCells) {
-                    if (!(cell.obj instanceof Empty) || uselessCells.contains(getUselessCellId(cell))) {
-                        continue;
-                    }
-                    final boolean isFound = findSolution(map, rounds - 1, bombs, cell, uselessCells, goodNodes, destroyingNodes, answers);
-                    if (isFound) {
-                        final String answer = cell.x + " " + cell.y;
-                        answers.push(answer);
-                        log("BOMB " + answer);
-                        return true;
-                    }
+        final Obj[][] copy = createCopy(map);
+        if (cellForBomb != null) {
+            cellForBomb.obj = new Bomb(3);
+            for (Cell n : cellForBomb.reachableCells) {
+                if (n.obj instanceof Node) {
+                    n.obj = new DestroyingNode();
                 }
             }
+            bombs--;
+            goodNodes -= cellForBomb.canDestroy;
+            destroyingNodes += cellForBomb.canDestroy;
+        }
 
-            final boolean isFound = findSolution(map, rounds - 1, bombs, null, uselessCells, goodNodes, destroyingNodes, answers);
-            if (isFound) {
-//                log("end WAIT");
-                answers.push(ACTION_WAIT);
-            } else if (cellForBomb != null) {
-//                uselessCells.add(getUselessCellId(cellForBomb));
-//                log("block " + cellForBomb);
-            }
-            return isFound;
-        } finally {
-            if (copy != null) {
-                restoreFromCopy(map, copy);
+        if (bombs > 0) {
+            ArrayList<Cell> usefulCells = getUsefulCells(map);
+            for (Cell cell : usefulCells) {
+                if (!(cell.obj instanceof Empty)) {
+                    continue;
+                }
+                final Obj[][] copyInternal = createCopy(map);
+                final boolean isFound = findSolution(map, rounds - 1, bombs, cell, goodNodes, destroyingNodes, answers);
+                restoreFromCopy(map, copyInternal);
+                if (isFound) {
+                    final String answer = cell.x + " " + cell.y;
+                    answers.push(answer);
+                    log("BOMB " + answer);
+                    return true;
+                }
             }
         }
+
+        final boolean isFound = findSolution(map, rounds - 1, bombs, null, goodNodes, destroyingNodes, answers);
+        restoreFromCopy(map, copy);
+        if (isFound) {
+//                log("end WAIT");
+            answers.push(ACTION_WAIT);
+        }
+        return isFound;
     }
 
     private static Obj[][] createCopy(Cell[][] map) {
@@ -250,8 +236,16 @@ class Player {
         public int doAction(Cell[][] map) {
             if (obj instanceof BusyNode) {
                 obj = new Empty();
+            } else if (obj instanceof Bomb) {
+                final Bomb bomb = (Bomb) obj;
+                if (bomb.mLeftTurns > 1) {
+                    obj = new Bomb(bomb.mLeftTurns - 1);
+                } else {
+                    return destroy(map);
+                }
             }
-            return obj.doAction(map, x, y);
+
+            return 0;
         }
 
         public int destroy(Cell[][] map) {
@@ -259,8 +253,11 @@ class Player {
                 obj = new BusyNode();
                 return 1;
             } else if (obj instanceof Bomb) {
-                final int countDestroyed = ((Bomb) obj).destroy(map, x, y);
                 obj = new BusyNode();
+                int countDestroyed = 0;
+                for (Cell cell : reachableCells) {
+                    countDestroyed += cell.destroy(map);
+                }
                 return countDestroyed;
             }
 
@@ -331,76 +328,29 @@ class Player {
     }
 
     private static abstract class Obj {
-        public abstract int doAction(Cell[][] map, int x, int y);
     }
 
     private static class Empty extends Obj {
-
-        @Override
-        public int doAction(Cell[][] map, int x, int y) {
-            return 0;
-        }
     }
 
     private static class Node extends Obj {
-
-        @Override
-        public int doAction(Cell[][] map, int x, int y) {
-            return 0;
-        }
     }
 
     private static class DestroyingNode extends Obj {
-
-        @Override
-        public int doAction(Cell[][] map, int x, int y) {
-            return 0;
-        }
     }
 
     private static class BusyNode extends Obj {
-
-        @Override
-        public int doAction(Cell[][] map, int x, int y) {
-            return 0;
-        }
     }
 
     private static class Wall extends Obj {
-
-        @Override
-        public int doAction(Cell[][] map, int x, int y) {
-            return 0;
-        }
     }
 
     private static class Bomb extends Obj {
 
-        private int mLeftTurns = 3;
+        private final int mLeftTurns;
 
-        private boolean mCanExplode = true;
-
-        @Override
-        public int doAction(Cell[][] map, int x, int y) {
-            mLeftTurns--;
-            if (mLeftTurns == 0) {
-                return destroy(map, x, y);
-            }
-            return 0;
-        }
-
-        public int destroy(Cell[][] map, int x, int y) {
-            if (!mCanExplode) {
-                return 0;
-            }
-            mCanExplode = false;
-            final Cell currentCell = map[x][y];
-            int countDestroyed = 0;
-            for (Cell cell : currentCell.reachableCells) {
-                countDestroyed += cell.destroy(map);
-            }
-
-            return countDestroyed;
+        public Bomb(int leftTurns) {
+            mLeftTurns = leftTurns;
         }
     }
 }
