@@ -1,6 +1,8 @@
+package hard;
+
 import java.util.*;
 
-class Player {
+class VoxCodei {
 
     private static final boolean SHOW_LOGS = true;
 
