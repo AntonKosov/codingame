@@ -75,19 +75,10 @@ class Player {
             int destroyingNodes,
             LinkedList<String> answers) {
         if (rounds < 0 || (bombs == 0 && goodNodes > 0)) {
-            log("no solution");
             return false;
         }
 
-        if (cellForBomb != null) {
-            log("Try next " + cellForBomb + ", rounds=" + rounds);
-        }
-
         destroyingNodes -= doAction(map);
-        log("dn=" + destroyingNodes + ", gn=" + goodNodes + ", rounds=" + rounds + ", bombs=" + bombs);
-        if (map[3][2].obj instanceof Bomb) {
-            log("BOMB (3, 2) " + ((Bomb) map[3][2].obj).mLeftTurns);
-        }
 
         if (destroyingNodes == 0 && goodNodes == 0) {
             answers.push(ACTION_WAIT);
@@ -96,60 +87,67 @@ class Player {
         }
 
         if ((bombs > 1 && cellForBomb != null) || (bombs > 0 && cellForBomb == null)) {
-            ArrayList<Cell> usefulCells = getUsefulCells(map);
-            int countNodes = 0;
-            int iB = 0;
-            for (Cell cell : usefulCells) {
-                countNodes += cell.canDestroy;
-                iB++;
-                if (iB > bombs) {
-                    break;
-                }
-            }
-            if (goodNodes - countNodes > 0) {
-                log("no solution " + cellForBomb + ", gn=" + goodNodes + ", cn=" + countNodes);
+            if (!isEnoughBombs(map, bombs, goodNodes)) {
                 return false;
             }
         }
 
         final Obj[][] copy = createCopy(map);
-        if (cellForBomb != null) {
-            cellForBomb.obj = new Bomb(3);
-            for (Cell n : cellForBomb.reachableCells) {
-                if (n.obj instanceof Node) {
-                    n.obj = new DestroyingNode();
+        try {
+            if (cellForBomb != null) {
+                cellForBomb.obj = new Bomb(3);
+                for (Cell n : cellForBomb.reachableCells) {
+                    if (n.obj instanceof Node) {
+                        n.obj = new DestroyingNode();
+                    }
+                }
+                bombs--;
+                goodNodes -= cellForBomb.canDestroy;
+                destroyingNodes += cellForBomb.canDestroy;
+                if (!isEnoughBombs(map, bombs, goodNodes)) {
+                    return false;
                 }
             }
-            bombs--;
-            goodNodes -= cellForBomb.canDestroy;
-            destroyingNodes += cellForBomb.canDestroy;
-        }
 
-        if (bombs > 0) {
-            ArrayList<Cell> usefulCells = getUsefulCells(map);
-            for (Cell cell : usefulCells) {
-                if (!(cell.obj instanceof Empty)) {
-                    continue;
-                }
-                final Obj[][] copyInternal = createCopy(map);
-                final boolean isFound = findSolution(map, rounds - 1, bombs, cell, goodNodes, destroyingNodes, answers);
-                restoreFromCopy(map, copyInternal);
-                if (isFound) {
-                    final String answer = cell.x + " " + cell.y;
-                    answers.push(answer);
-                    log("BOMB " + answer);
-                    return true;
+            if (bombs > 0) {
+                ArrayList<Cell> usefulCells = getUsefulCells(map);
+                for (Cell cell : usefulCells) {
+                    if (!(cell.obj instanceof Empty)) {
+                        continue;
+                    }
+                    final Obj[][] copyInternal = createCopy(map);
+                    final boolean isFound = findSolution(map, rounds - 1, bombs, cell, goodNodes, destroyingNodes, answers);
+                    restoreFromCopy(map, copyInternal);
+                    if (isFound) {
+                        final String answer = cell.x + " " + cell.y;
+                        answers.push(answer);
+                        return true;
+                    }
                 }
             }
-        }
 
-        final boolean isFound = findSolution(map, rounds - 1, bombs, null, goodNodes, destroyingNodes, answers);
-        restoreFromCopy(map, copy);
-        if (isFound) {
-//                log("end WAIT");
-            answers.push(ACTION_WAIT);
+            final boolean isFound = findSolution(map, rounds - 1, bombs, null, goodNodes, destroyingNodes, answers);
+            if (isFound) {
+                answers.push(ACTION_WAIT);
+            }
+            return isFound;
+        } finally {
+            restoreFromCopy(map, copy);
         }
-        return isFound;
+    }
+
+    private static boolean isEnoughBombs(Cell[][] map, int bombs, int goodNodes) {
+        ArrayList<Cell> usefulCells = getUsefulCells(map);
+        int countNodes = 0;
+        int iB = 0;
+        for (Cell cell : usefulCells) {
+            countNodes += cell.canDestroy;
+            iB++;
+            if (iB == bombs) {
+                break;
+            }
+        }
+        return goodNodes - countNodes <= 0;
     }
 
     private static Obj[][] createCopy(Cell[][] map) {
@@ -169,10 +167,6 @@ class Player {
                 map[x][y].obj = copy[x][y];
             }
         }
-    }
-
-    private static int getUselessCellId(Cell cell) {
-        return cell.x * 1000 + cell.y;
     }
 
     private static int doAction(Cell[][] map) {
