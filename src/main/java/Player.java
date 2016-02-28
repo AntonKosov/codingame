@@ -108,12 +108,12 @@ class Player {
         if (pod.vel.len2() != 0 && Math.abs(pod.vel.angle(dir)) > 5) {
             //correcting
             targetPoint.set(dir).nor().scl(pod.vel.len()).add(pod.loc);
-            log("correcting, tp=" + targetPoint + ", dir=" + dir);
+//            log("correcting, tp=" + targetPoint + ", dir=" + dir);
         } else {
             //final float dst = pod.loc.dst(checkpoint);
             targetPoint.set(dir).nor().scl(pod.vel.len() + 500).add(pod.loc);
-            final Vector nor = new Vector(dir).nor().scl(pod.vel.len() + 500);
-            log("u, tp=" + targetPoint + ", dir=" + dir + ", dl=" + dir.len() + ", nor=" + nor + ", pl=" + pod.loc);
+//            final Vector nor = new Vector(dir).nor().scl(pod.vel.len() + 500);
+//            log("u, tp=" + targetPoint + ", dir=" + dir + ", dl=" + dir.len() + ", nor=" + nor + ", pl=" + pod.loc);
         }
 
         //todo target point speed
