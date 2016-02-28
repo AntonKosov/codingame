@@ -5,6 +5,9 @@ class Player {
     private static final boolean SHOW_LOGS = true;
 
     private static final float RESISTANCE = 1 - 0.15384615384615384615f;
+    private static final float RIGHT_CIRCLE_K = 0.3f;
+    private static final float CIRCLE_MUL_K = 3f;
+
     private static final float MAX_THRUST = 200;
     private static final float MAX_THRUST_2 = MAX_THRUST * MAX_THRUST;
     private static final int MAX_ANGLE = 18;
@@ -73,8 +76,8 @@ class Player {
 
         // game loop
         while (true) {
-            sHelper.readData(in);
             sRacer.readData(in);
+            sHelper.readData(in);
             sOppPods[0].readData(in);
             sOppPods[1].readData(in);
 
@@ -95,30 +98,94 @@ class Player {
     }
 
     private static void calculateRacer(final Pod pod, Answer answer) {
-        final Vector p1 = pod.loc;
-        final Vector p2 = sCheckpoints[pod.nextCheckPointId];
-        final Vector p3 = getAfterNextCheckpoint(pod);
-        final Vector centerOfCircle = getCenterOfCircle(p1, p2, p3);
+        final Vector checkpoint = sCheckpoints[pod.nextCheckPointId];
+        //todo angle * base
+        final float targetSpeed = 0;
 
-        final Vector p1p3 = new Vector(p3).sub(p1);
-        final Vector p1p2 = new Vector(p2).sub(p1);
-        final float sign = p1p3.crs(p1p2) > 0 ? -1 : +1;
+        final Vector dir = new Vector(checkpoint).sub(pod.loc);
 
-        final Vector optimalOffset = new Vector(p1).sub(centerOfCircle).rotate(MAX_ANGLE * sign);
-        final Vector wantPoint = new Vector(centerOfCircle).add(optimalOffset);
-        final Vector wantVelocity = new Vector(wantPoint).sub(p1).scl(1.0f / RESISTANCE);
-        final Vector thrust = new Vector(wantVelocity).sub(pod.vel);
+        final Vector targetPoint = new Vector();
+        if (pod.vel.len2() != 0 && Math.abs(pod.vel.angle(dir)) > 5) {
+            //correcting
+            targetPoint.set(dir).nor().scl(pod.vel.len()).add(pod.loc);
+            log("correcting, tp=" + targetPoint + ", dir=" + dir);
+        } else {
+            //final float dst = pod.loc.dst(checkpoint);
+            targetPoint.set(dir).nor().scl(pod.vel.len() + 500).add(pod.loc);
+            final Vector nor = new Vector(dir).nor().scl(pod.vel.len() + 500);
+            log("u, tp=" + targetPoint + ", dir=" + dir + ", dl=" + dir.len() + ", nor=" + nor + ", pl=" + pod.loc);
+        }
 
-        //todo ?
-//        thrust.scl(1.0f / RESISTANCE);
-        final Vector thrustPod = new Vector(p1).add(thrust);
+        //todo target point speed
+
+        final Vector velPoint = new Vector(pod.vel).add(pod.loc);
+        final Vector thrust = new Vector(targetPoint).sub(velPoint).scl(1 / RESISTANCE);
+
+        final Vector thrustPod = new Vector(pod.loc).add(thrust);
         answer.x = (int) thrustPod.x;
         answer.y = (int) thrustPod.y;
         final float len2 = thrust.len2();
         answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
-
-        //log(pod + ", a=" + answer + ", center=" + centerOfCircle + ", thrust=" + thrust + ", wantVelocity=" + wantVelocity);
     }
+
+//    private static void calculateRacer(final Pod pod, Answer answer) {
+//        final Vector p1 = new Vector(pod.loc);
+//        final Vector p2 = new Vector(sCheckpoints[pod.nextCheckPointId]);
+//        final Vector p3 = new Vector(getAfterNextCheckpoint(pod));
+//
+//        final float p1p2Length = new Vector(p2).sub(p1).len2();
+//        final float p2p3Length = new Vector(p3).sub(p2).len2();
+//        final float ratio = p1p2Length / p2p3Length;
+//        log("ratio=" + ratio);
+//        if (ratio > RIGHT_CIRCLE_K) {
+//            log("fix p3");
+//            final Vector rightCenterOfCircle = getCenterOfCircle(p1, p2, p3);
+//            final Vector newP3 = new Vector(p3).sub(rightCenterOfCircle).scl(ratio * CIRCLE_MUL_K).add(rightCenterOfCircle);
+//            p3.set(newP3);
+//        }
+//        final Vector centerOfCircle = getCenterOfCircle(p1, p2, p3);
+//
+//        final Vector p1p3 = new Vector(p3).sub(p1);
+//        final Vector p1p2 = new Vector(p2).sub(p1);
+//        final float sign = p1p3.crs(p1p2) > 0 ? -1 : +1;
+//
+//        final Vector optimalOffset = new Vector(p1).sub(centerOfCircle).rotate(MAX_ANGLE * sign);
+//        final Vector wantPoint = new Vector(centerOfCircle).add(optimalOffset);
+//        final Vector wantVelocity = new Vector(wantPoint).sub(p1).scl(1.0f / RESISTANCE);
+//        final Vector thrust = new Vector(wantVelocity).sub(pod.vel);
+//
+//        final Vector thrustPod = new Vector(p1).add(thrust);
+//        answer.x = (int) thrustPod.x;
+//        answer.y = (int) thrustPod.y;
+//        final float len2 = thrust.len2();
+//        answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
+//
+//        log(pod + ", a=" + answer + ", center=" + centerOfCircle + ", wantPoint=" + wantPoint + ", wantVelocity=" + wantVelocity);
+//    }
+
+//    private static void calculateRacer(final Pod pod, Answer answer) {
+//        final Vector p1 = pod.loc;
+//        final Vector p2 = sCheckpoints[pod.nextCheckPointId];
+//        final Vector p3 = getAfterNextCheckpoint(pod);
+//        final Vector centerOfCircle = getCenterOfCircle(p1, p2, p3);
+//
+//        final Vector p1p3 = new Vector(p3).sub(p1);
+//        final Vector p1p2 = new Vector(p2).sub(p1);
+//        final float sign = p1p3.crs(p1p2) > 0 ? -1 : +1;
+//
+//        final Vector optimalOffset = new Vector(p1).sub(centerOfCircle).rotate(MAX_ANGLE * sign);
+//        final Vector wantPoint = new Vector(centerOfCircle).add(optimalOffset);
+//        final Vector wantVelocity = new Vector(wantPoint).sub(p1).scl(1.0f / RESISTANCE);
+//        final Vector thrust = new Vector(wantVelocity).sub(pod.vel);
+//
+//        final Vector thrustPod = new Vector(p1).add(thrust);
+//        answer.x = (int) thrustPod.x;
+//        answer.y = (int) thrustPod.y;
+//        final float len2 = thrust.len2();
+//        answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
+//
+//        //log(pod + ", a=" + answer + ", center=" + centerOfCircle + ", thrust=" + thrust + ", wantVelocity=" + wantVelocity);
+//    }
 
     private static Vector getCenterOfCircle(Vector p1, Vector p2, Vector p3) {
         if (p1.equals(p3)) {
@@ -347,6 +414,14 @@ class Player {
             return x * x + y * y;
         }
 
+        public float angle(Vector v) {
+            return (float) Math.toDegrees(Math.atan2(crs(v), dot(v)));
+        }
+
+        public float dot(Vector v) {
+            return x * v.x + y * v.y;
+        }
+
         public Vector rotate(float degrees) {
             final float radians = (float) Math.toRadians(degrees);
 
@@ -366,6 +441,25 @@ class Player {
             return x * v.y - y * v.x;
         }
 
+        public Vector nor() {
+            final float len = len();
+            if (len != 0) {
+                x /= len;
+                y /= len;
+            }
+            return this;
+        }
+
+        public float dst(float x, float y) {
+            final float xD = x - this.x;
+            final float yD = y - this.y;
+            return (float) Math.sqrt(xD * xD + yD * yD);
+        }
+
+        public float dst(Vector v) {
+            return dst(v.x, v.y);
+        }
+
         @Override
         public boolean equals(Object obj) {
             if (obj instanceof Vector) {
@@ -378,7 +472,7 @@ class Player {
 
         @Override
         public String toString() {
-            return "(" + ((int) x) + ", " + ((int) y) + ")";
+            return "(" + x + ", " + y + ")";
         }
     }
 }
