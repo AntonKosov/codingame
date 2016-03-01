@@ -2,7 +2,7 @@ import java.util.*;
 
 class Player {
 
-    private static final boolean SHOW_LOGS = true;
+    private static final boolean DEBUG_MODE = true;
 
     private static final boolean RACER_SHIELD_ENABLED = true;
 
@@ -21,11 +21,12 @@ class Player {
     private static final int CHECKPOINT_RADIUS = 600;
 
     private static int sCountLaps;
+    private static int sTotalCheckpoints;
     private static Vector[] sCheckpoints;
     private static Pod[] sOppPods = new Pod[2];
 
-    private static final Pod sRacer = new Pod("Racer");
-    private static final Pod sHelper = new Pod("Helper");
+    private static final Pod sMyPod1 = new Pod("MyPod1");
+    private static final Pod sMyPod2 = new Pod("MyPod2");
     private static final Pod sEnemy1 = new Pod("Enemy1");
     private static final Pod sEnemy2 = new Pod("Enemy2");
 
@@ -43,6 +44,7 @@ class Player {
         final Scanner in = new Scanner(System.in);
         sCountLaps = in.nextInt();
         final int checkpointCount = in.nextInt();
+        sTotalCheckpoints = sCountLaps * checkpointCount;
         sCheckpoints = new Vector[checkpointCount];
         for (int i = 0; i < checkpointCount; i++) {
             final Vector point = new Vector();
@@ -54,22 +56,45 @@ class Player {
         sOppPods[0] = sEnemy1;
         sOppPods[1] = sEnemy2;
 
-        final Answer answerRacer = new Answer();
-        final Answer answerHelper = new Answer();
+        final Answer answerPod1 = new Answer();
+        final Answer answerPod2 = new Answer();
+
+        boolean isFirstStep = true;
 
         // game loop
         while (true) {
-            sRacer.readData(in);
-            sHelper.readData(in);
+            sMyPod1.readData(in);
+            sMyPod2.readData(in);
             sOppPods[0].readData(in);
             sOppPods[1].readData(in);
 
-            calculateRacer(sRacer, answerRacer);
-            calculateRacer(sHelper, answerHelper);
-//            calculateHelper(sHelper, answerHelper);
+            if (isFirstStep) {
+                isFirstStep = false;
+                final Vector secondCheckpoint = getAfterNextCheckpoint(sMyPod1);
+                final float dst1 = secondCheckpoint.dst2(sMyPod1.loc);
+                final float dst2 = secondCheckpoint.dst2(sMyPod2.loc);
+                if (dst1 > dst2) {
+                    sMyPod1.role = Role.Racer;
+                    sMyPod2.role = Role.Helper;
+                } else {
+                    sMyPod1.role = Role.Helper;
+                    sMyPod2.role = Role.Racer;
+                }
+            }
 
-            System.out.println(answerRacer);
-            System.out.println(answerHelper);
+            if (sMyPod1.role == Role.Racer) {
+                calculateRacer(sMyPod1, answerPod1);
+            } else {
+                calculateHelper(sMyPod1, answerPod1);
+            }
+            if (sMyPod2.role == Role.Racer) {
+                calculateRacer(sMyPod2, answerPod2);
+            } else {
+                calculateHelper(sMyPod2, answerPod2);
+            }
+
+            System.out.println(answerPod1);
+            System.out.println(answerPod2);
         }
     }
 
@@ -96,7 +121,7 @@ class Player {
     }
 
     private static void calculateRacer(final Pod pod, Answer answer) {
-        answer.shieldIsActivated = false;
+        answer.reset();
 
         final Vector checkpoint = sCheckpoints[pod.nextCheckPointId];
         final Vector nextCheckpoint = getAfterNextCheckpoint(pod);
@@ -402,19 +427,21 @@ class Player {
     }
 
     private static void log(String message) {
-        if (SHOW_LOGS) {
+        if (DEBUG_MODE) {
             System.err.println(message);
         }
     }
 
     private static class Pod {
 
-        public final String name;
-
+        public String name;
         public final Vector loc = new Vector();
         public final Vector vel = new Vector();
         public int angle;
-        public int nextCheckPointId;
+        public int nextCheckPointId = 1;
+        public Role role = Role.Racer;
+
+        public int passedCheckpoints = 0;
 
         public Pod(String name) {
             this.name = name;
@@ -427,7 +454,12 @@ class Player {
             vel.y = in.nextInt();
             vel.scl(RESISTANCE);
             angle = in.nextInt();
+            final int oldTargetCheckpoint = nextCheckPointId;
             nextCheckPointId = in.nextInt();
+            if (nextCheckPointId != oldTargetCheckpoint) {
+                passedCheckpoints++;
+                log(name + " passed " + oldTargetCheckpoint + ", left " + (sTotalCheckpoints - passedCheckpoints));
+            }
         }
 
         @Override
@@ -436,20 +468,34 @@ class Player {
         }
     }
 
+    private enum Role {
+        Racer, Helper
+    }
+
     private static class Answer {
 
         public int x;
         public int y;
         public int thrust;
         public boolean shieldIsActivated;
+        public String message = "";
 
         @Override
         public String toString() {
+            final String m = message.isEmpty() ? "" : " " + message;
             if (shieldIsActivated) {
-                return x + " " + y + " SHIELD";
+                return x + " " + y + " SHIELD" + " Shield" + m;
             }
 
-            return x + " " + y + " " + thrust;
+            return x + " " + y + " " + thrust + m;
+        }
+
+        public void reset() {
+            x = 0;
+            y = 0;
+            thrust = 0;
+            shieldIsActivated = false;
+            message = "";
         }
     }
 
