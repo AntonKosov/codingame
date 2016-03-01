@@ -14,8 +14,8 @@ class Player {
     private static final float MAX_THRUST = 200;
     private static final float MAX_THRUST_2 = MAX_THRUST * MAX_THRUST;
     private static final float MAX_ANGLE = 18;
-    private static final float HALF_MAX_ANGLE = MAX_ANGLE / 2;
     private static final int POD_RADIUS = 400;
+    private static final int POD_RADIUS_2 = POD_RADIUS * POD_RADIUS;
     private static final int CHECKPOINT_RADIUS = 600;
 
     private static int sCountLaps;
@@ -24,6 +24,8 @@ class Player {
 
     private static final Pod sRacer = new Pod("Racer");
     private static final Pod sHelper = new Pod("Helper");
+    private static final Pod sEnemy1 = new Pod("Enemy1");
+    private static final Pod sEnemy2 = new Pod("Enemy2");
 
     private static final Vector sTmpVector = new Vector();
 
@@ -47,8 +49,8 @@ class Player {
             sCheckpoints[i] = point;
         }
 
-        sOppPods[0] = new Pod("Enemy0");
-        sOppPods[1] = new Pod("Enemy1");
+        sOppPods[0] = sEnemy1;
+        sOppPods[1] = sEnemy2;
 
         final Answer answerRacer = new Answer();
         final Answer answerHelper = new Answer();
@@ -61,8 +63,8 @@ class Player {
             sOppPods[1].readData(in);
 
             calculateRacer(sRacer, answerRacer);
-//            calculateRacer(sHelper, answerHelper);
-            calculateHelper(sHelper, answerHelper);
+            calculateRacer(sHelper, answerHelper);
+//            calculateHelper(sHelper, answerHelper);
 
             System.out.println(answerRacer);
             System.out.println(answerHelper);
@@ -92,6 +94,8 @@ class Player {
     }
 
     private static void calculateRacer(final Pod pod, Answer answer) {
+        answer.shieldIsActivated = false;
+
         final Vector checkpoint = sCheckpoints[pod.nextCheckPointId];
         final Vector nextCheckpoint = getAfterNextCheckpoint(pod);
 
@@ -104,11 +108,14 @@ class Player {
         log("angle " + pod.vel.angle(desiredSpeed) + ", cpv=" + checkpointVelocity.len() + ", cv=" + pod.vel.len());
 
         if (isRightVelocityAndDirection(pod, desiredSpeed)) {
-            log("cool");
             //todo fix
             answer.x = (int) nextCheckpoint.x;
             answer.y = (int) nextCheckpoint.y;
             answer.thrust = 0;
+
+            log("cool");
+            isCollision(pod, answer, sEnemy1, null);
+            isCollision(pod, answer, sEnemy2, null);
             return;
         }
 
@@ -122,13 +129,16 @@ class Player {
 //            return;
 //        }
 
-        if (desiredThrust.angle(podOrientation) <= MAX_ANGLE) {
+        final float desiredPodOrientationAngle = Math.abs(desiredThrust.angle(podOrientation));
+        if (desiredPodOrientationAngle <= MAX_ANGLE) {
             final float len2 = desiredThrust.len2();
             answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
             sTmpVector.set(pod.loc).add(desiredThrust);
             answer.x = (int) sTmpVector.x;
             answer.y = (int) sTmpVector.y;
             log("Thrust is right");
+            isCollision(pod, answer, sEnemy1, null);
+            isCollision(pod, answer, sEnemy2, null);
             return;
         }
 
@@ -136,6 +146,30 @@ class Player {
         //todo fix - optimal rotation
         answer.x = (int) checkpoint.x;
         answer.y = (int) checkpoint.y;
+    }
+
+    private static boolean isCollision(Pod pod1, Answer pod1A, Pod pod2, Answer pod2A) {
+        final Vector pod1Thrust = new Vector(pod1A.x, pod1A.y).nor().scl(pod1A.thrust);
+        final Vector pod1NextPosition = new Vector(pod1.vel).add(pod1Thrust).add(pod1.loc);
+
+        final Vector pod2NextPosition;
+        if (pod2A != null) {
+            final Vector pod2Thrust = new Vector(pod2A.x, pod2A.y).nor().scl(pod2A.thrust);
+            pod2NextPosition = new Vector(pod2.vel).add(pod2Thrust).add(pod2.loc);
+        } else {
+            pod2NextPosition = new Vector(pod2.loc).add(pod2.vel);
+        }
+
+        final float dst = pod1NextPosition.dst(pod2NextPosition);
+        final boolean isCollision = dst < POD_RADIUS * 2;
+
+        if (isCollision) {
+            log(">< Collision " + pod1 + "-" + pod2);
+        } else {
+            log("No collision: " + pod1 + "-" + pod2 + ": " + dst + ", " + pod1NextPosition + ", " + pod2NextPosition);
+        }
+
+        return isCollision;
     }
 
     private static boolean isRightVelocityAndDirection(Pod pod, Vector desiredSpeed) {
