@@ -4,13 +4,17 @@ class Player {
 
     private static final boolean SHOW_LOGS = true;
 
-    private static final float RESISTANCE = 1 - 0.15384615384615384615f;
-    private static final float RIGHT_CIRCLE_K = 0.3f;
-    private static final float CIRCLE_MUL_K = 3f;
+    private static final float RESISTANCE = 0.85f;
+//    private static final float RIGHT_CIRCLE_K = 0.3f;
+//    private static final float CIRCLE_MUL_K = 3f;
+//    private static final float ANGLE_SPEED = 1;
+    private static final float MAX_SPEED = 700;
+    private static final float MIN_SPEED = 100;
 
     private static final float MAX_THRUST = 200;
     private static final float MAX_THRUST_2 = MAX_THRUST * MAX_THRUST;
-    private static final int MAX_ANGLE = 18;
+    private static final float MAX_ANGLE = 18;
+    private static final float HALF_MAX_ANGLE = MAX_ANGLE / 2;
     private static final int POD_RADIUS = 400;
     private static final int CHECKPOINT_RADIUS = 600;
 
@@ -20,6 +24,8 @@ class Player {
 
     private static final Pod sRacer = new Pod("Racer");
     private static final Pod sHelper = new Pod("Helper");
+
+    private static final Vector sTmpVector = new Vector();
 
 //    private static Vector sBP0 = new Vector();
 //    private static Vector sBP1 = new Vector();
@@ -47,33 +53,6 @@ class Player {
         final Answer answerRacer = new Answer();
         final Answer answerHelper = new Answer();
 
-//        int step = 0;
-//        String[] a = new String[] {
-//                "10000 10000 0",
-//                "10000 10000 0",
-//                "10000 10000 0",
-//                "10000 10000 0",
-//                "10000 10000 0",
-//                "10000 10000 200",
-//                "10000 10000 0",
-//                "10000 10000 0",
-//                "10000 10000 0",
-//                "10000 10000 0",
-//                "10000 10000 200",
-//                "10000 10000 200",
-//                "10000 10000 200",
-//                "10000 10000 200",
-//                "10000 10000 200",
-//                "10000 10000 200",
-//                "10000 10000 200",
-//                "0 0 200",
-//                "0 0 200",
-//                "0 0 200",
-//                "0 0 200",
-//                "0 0 200",
-//        };
-
-
         // game loop
         while (true) {
             sRacer.readData(in);
@@ -82,50 +61,139 @@ class Player {
             sOppPods[1].readData(in);
 
             calculateRacer(sRacer, answerRacer);
-            calculateRacer(sHelper, answerHelper);
+            calculateHelper(sHelper, answerHelper);
 
             System.out.println(answerRacer);
             System.out.println(answerHelper);
-
-//            step++;
-//            if (step == a.length) step = 0;
-//
-//            log("vel=" + sMyPods[0].vel + ", sp=" + sMyPods[0].vel.len());
-//
-//            System.out.println(a[step]); //"8000 4500 100"
-//            System.out.println("0 0 0");
         }
+    }
+
+//    private static final Vector shv = new Vector(100, 100);
+
+    private static void calculateHelper(final Pod pod, Answer answer) {
+        // todo shield, protection
+        answer.shieldIsActivated = true;
+//        if (pod.vel.len2() == 0) {
+//            final Vector v = new Vector(shv).add(pod.loc);
+//            answer.x = (int) shv.x;
+//            answer.y = (int) shv.y;
+//            answer.thrust = (int) MAX_THRUST;
+//            shv.rotate(120);
+//        } else {
+//            final Vector back = new Vector(pod.vel).scl(-1).add(pod.loc);
+//            answer.x = (int) back.x;
+//            answer.y = (int) back.y;
+//            final float thrust = pod.vel.len() * RESISTANCE;
+//            answer.thrust = (int) (thrust > MAX_THRUST ? MAX_THRUST : thrust);
+//        }
+//
+//        log("ps=" + pod.vel.len() + ", pv=" + (new Vector(pod.vel).nor()) + ", a=" + answer + ", shv=" + shv + ", back=" + (new Vector(pod.vel).scl(-1).nor()));
     }
 
     private static void calculateRacer(final Pod pod, Answer answer) {
         final Vector checkpoint = sCheckpoints[pod.nextCheckPointId];
-        //todo angle * base
-        final float targetSpeed = 0;
+//        final Vector nextCheckpoint = getAfterNextCheckpoint(pod);
 
-        final Vector dir = new Vector(checkpoint).sub(pod.loc);
+        final Vector desiredSpeed = getNextDesiredSpeed(pod, checkpoint);
+        final Vector desiredThrust = getDesiredThrust(pod, desiredSpeed);
+        log("Desired speed " + desiredSpeed.len() + ", desired thrust " + desiredThrust);
 
-        final Vector targetPoint = new Vector();
-        if (pod.vel.len2() != 0 && Math.abs(pod.vel.angle(dir)) > 5) {
-            //correcting
-            targetPoint.set(dir).nor().scl(pod.vel.len()).add(pod.loc);
-//            log("correcting, tp=" + targetPoint + ", dir=" + dir);
-        } else {
-            //final float dst = pod.loc.dst(checkpoint);
-            targetPoint.set(dir).nor().scl(pod.vel.len() + 500).add(pod.loc);
-//            final Vector nor = new Vector(dir).nor().scl(pod.vel.len() + 500);
-//            log("u, tp=" + targetPoint + ", dir=" + dir + ", dl=" + dir.len() + ", nor=" + nor + ", pl=" + pod.loc);
+        final Vector podOrientation = new Vector(1, 0).rotate(pod.angle);
+        if (desiredThrust.angle(podOrientation) < MAX_ANGLE) {
+            sTmpVector.set(pod.loc).add(desiredThrust);
+            answer.x = (int) sTmpVector.x;
+            answer.y = (int) sTmpVector.y;
+            final float len2 = desiredThrust.len2();
+            answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
+            log("Thrust is right");
+            return;
         }
 
-        //todo target point speed
 
-        final Vector velPoint = new Vector(pod.vel).add(pod.loc);
-        final Vector thrust = new Vector(targetPoint).sub(velPoint).scl(1 / RESISTANCE);
+//        final Vector dir = new Vector(checkpoint).sub(pod.loc);
+//        final Vector desired = new Vector(dir).nor().scl(MAX_SPEED); //todo slowing and rotation to the next checkpoint
+//
+//        if (Math.abs(desired.angle(podOrientation)) < 90) {
+//            answer.x = (int) checkpoint.x;
+//            answer.y = (int) checkpoint.y;
+//            if (pod.vel.len() > MAX_SPEED) {
+//                answer.thrust = 0;
+//                log("R: max speed");
+//            } else {
+//                sTmpVector.set(dir).sub(pod.vel);
+//                final float len2 = sTmpVector.len2();
+//                answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
+//                log("R: force");
+//            }
+//            return;
+//        }
+//
+//        log("R: rotation");
+        answer.thrust = 0;
+        answer.x = (int) checkpoint.x;
+        answer.y = (int) checkpoint.y;
 
-        final Vector thrustPod = new Vector(pod.loc).add(thrust);
-        answer.x = (int) thrustPod.x;
-        answer.y = (int) thrustPod.y;
-        final float len2 = thrust.len2();
-        answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
+
+//        if (pod.vel.len2() == 0) {
+//            answer.x = (int) checkpoint.x;
+//            answer.y = (int) checkpoint.y;
+//            answer.thrust = (int) MAX_THRUST;
+//            log("start");
+//            return;
+//        }
+//
+//        final float angleVelDir = Math.abs(pod.vel.angle(dir));
+//        final float missValue = Math.abs(dir.len() * (float) Math.tan(angleVelDir));
+////        log("dir=" + dir + ", podVel=" + pod.vel);
+//        log("angleVelDir=" + angleVelDir + ", missValue=" + missValue);
+//        if (missValue <= CHECKPOINT_RADIUS) {
+//            // pod's vector of velocity is good
+//            mTmpVector.set(pod.loc).add(pod.vel);
+//            answer.x = (int) mTmpVector.x;
+//            answer.y = (int) mTmpVector.y;
+//            if (angleVelDir <= MAX_ANGLE) {
+//                answer.thrust = (int) MAX_THRUST;
+//                log("vel and angle are right, force");
+//            } else {
+//                answer.thrust = 0;
+//                log("vel is right but angle is wrong, rotate");
+//            }
+//            return;
+//        }
+//
+//        if (angleVelDir <= HALF_MAX_ANGLE) {
+//
+//
+//            return;
+//        }
+    }
+
+    private static Vector getDesiredThrust(Pod pod, Vector desiredSpeed) {
+        final Vector nextVelocityWithoutThrust = new Vector(pod.vel).scl(RESISTANCE);
+        return new Vector(desiredSpeed).sub(nextVelocityWithoutThrust);
+    }
+
+    private static Vector getNextDesiredSpeed(Pod pod, Vector checkpoint) {
+        final float speedOnCheckpoint = MIN_SPEED; // todo it depends on angle to the next point
+        final Vector nextPositionWithoutThrust = new Vector(pod.vel).scl(RESISTANCE).add(pod.loc);
+        final Vector dirNextPositionWithoutThrust = new Vector(checkpoint).sub(nextPositionWithoutThrust);
+        float rest = dirNextPositionWithoutThrust.len();
+        float speed = speedOnCheckpoint;
+        if (speed > rest) {
+            return new Vector(dirNextPositionWithoutThrust).nor().scl(speedOnCheckpoint - speed); //negative
+        }
+
+        float speedAfter = 0;
+        float speedBefore = 0;
+        while (rest >= 0) {
+            speedAfter = speed;
+            speed /= RESISTANCE;
+            speedBefore = speed;
+            rest -= speed;
+//            log("sa=" + speedAfter + ", sb=" + speedBefore + ", rest=" + rest);
+        }
+
+        return new Vector(dirNextPositionWithoutThrust).nor().scl(speedBefore + rest / (speedBefore - speedAfter));
     }
 
 //    private static void calculateRacer(final Pod pod, Answer answer) {
@@ -187,42 +255,42 @@ class Player {
 //        //log(pod + ", a=" + answer + ", center=" + centerOfCircle + ", thrust=" + thrust + ", wantVelocity=" + wantVelocity);
 //    }
 
-    private static Vector getCenterOfCircle(Vector p1, Vector p2, Vector p3) {
-        if (p1.equals(p3)) {
-            return new Vector(p1).add(p2).scl(0.5f);
-        }
-
-        final Vector point1;
-        final Vector point2;
-        final Vector point3;
-        if (p2.x - p1.x == 0) {
-            point1 = p1;
-            point2 = p3;
-            point3 = p2;
-        } else if (p3.x - p2.x == 0) {
-            point1 = p2;
-            point2 = p1;
-            point3 = p3;
-        } else {
-            point1 = p1;
-            point2 = p2;
-            point3 = p3;
-        }
-
-        final float ma = (point2.y - point1.y) / (point2.x - point1.x);
-        final float mb = (point3.y - point2.y) / (point3.x - point2.x);
-
-//        log("ma=" + ma + ", mb=" + mb + ", point2=" + point2 + ", point3=" + point3 + "(point3.x - point2.x)=" + (point3.x - point2.x));
-
-        //todo div 0
-        final float x = (ma * mb * (point1.y - point3.y) + mb * (point1.x + point2.x) - ma * (point2.x + point3.x)) / (2 * (mb - ma));
-        //todo div 0
-        final float y = -1.0f / ma * (x - (point1.x + point2.x) / 2) + (point1.y + point2.y) / 2;
-
-//        log("center: " + point1 + ", " + point2 + ", " + point3);
-
-        return new Vector(x, y);
-    }
+//    private static Vector getCenterOfCircle(Vector p1, Vector p2, Vector p3) {
+//        if (p1.equals(p3)) {
+//            return new Vector(p1).add(p2).scl(0.5f);
+//        }
+//
+//        final Vector point1;
+//        final Vector point2;
+//        final Vector point3;
+//        if (p2.x - p1.x == 0) {
+//            point1 = p1;
+//            point2 = p3;
+//            point3 = p2;
+//        } else if (p3.x - p2.x == 0) {
+//            point1 = p2;
+//            point2 = p1;
+//            point3 = p3;
+//        } else {
+//            point1 = p1;
+//            point2 = p2;
+//            point3 = p3;
+//        }
+//
+//        final float ma = (point2.y - point1.y) / (point2.x - point1.x);
+//        final float mb = (point3.y - point2.y) / (point3.x - point2.x);
+//
+////        log("ma=" + ma + ", mb=" + mb + ", point2=" + point2 + ", point3=" + point3 + "(point3.x - point2.x)=" + (point3.x - point2.x));
+//
+//        //todo div 0
+//        final float x = (ma * mb * (point1.y - point3.y) + mb * (point1.x + point2.x) - ma * (point2.x + point3.x)) / (2 * (mb - ma));
+//        //todo div 0
+//        final float y = -1.0f / ma * (x - (point1.x + point2.x) / 2) + (point1.y + point2.y) / 2;
+//
+////        log("center: " + point1 + ", " + point2 + ", " + point3);
+//
+//        return new Vector(x, y);
+//    }
 
 //    private static void calculateAnswer(Answer answerAttacker, Answer answerProtector) {
 //        final Pod attacker = sMyPods[0];
@@ -345,7 +413,7 @@ class Player {
         @Override
         public String toString() {
             if (shieldIsActivated) {
-                return "SHIELD";
+                return x + " " + y + " SHIELD";
             }
 
             return x + " " + y + " " + thrust;
@@ -407,7 +475,7 @@ class Player {
         }
 
         public float len() {
-            return (float)Math.sqrt(len2());
+            return (float) Math.sqrt(len2());
         }
 
         public float len2() {
