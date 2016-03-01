@@ -8,7 +8,7 @@ class Player {
 //    private static final float RIGHT_CIRCLE_K = 0.3f;
 //    private static final float CIRCLE_MUL_K = 3f;
 //    private static final float ANGLE_SPEED = 1;
-    private static final float MAX_SPEED = 700;
+    private static final float MAX_SPEED = 200;
     private static final float MIN_SPEED = 100;
 
     private static final float MAX_THRUST = 200;
@@ -61,6 +61,7 @@ class Player {
             sOppPods[1].readData(in);
 
             calculateRacer(sRacer, answerRacer);
+//            calculateRacer(sHelper, answerHelper);
             calculateHelper(sHelper, answerHelper);
 
             System.out.println(answerRacer);
@@ -92,80 +93,67 @@ class Player {
 
     private static void calculateRacer(final Pod pod, Answer answer) {
         final Vector checkpoint = sCheckpoints[pod.nextCheckPointId];
-//        final Vector nextCheckpoint = getAfterNextCheckpoint(pod);
+        final Vector nextCheckpoint = getAfterNextCheckpoint(pod);
 
-        final Vector desiredSpeed = getNextDesiredSpeed(pod, checkpoint);
+        final Vector checkpointVelocity = new Vector();
+        final Vector desiredSpeed = getDesiredVelocity(pod, checkpoint, checkpointVelocity);
         final Vector desiredThrust = getDesiredThrust(pod, desiredSpeed);
         log("Desired speed " + desiredSpeed.len() + ", desired thrust " + desiredThrust);
 
         final Vector podOrientation = new Vector(1, 0).rotate(pod.angle);
-        if (desiredThrust.angle(podOrientation) < MAX_ANGLE) {
+        log("angle " + pod.vel.angle(desiredSpeed) + ", cpv=" + checkpointVelocity.len() + ", cv=" + pod.vel.len());
+
+        if (isRightVelocityAndDirection(pod, desiredSpeed)) {
+            log("cool");
+            //todo fix
+            answer.x = (int) nextCheckpoint.x;
+            answer.y = (int) nextCheckpoint.y;
+            answer.thrust = 0;
+            return;
+        }
+
+//        if (desiredThrust) {
+//            final Vector toNextPoint = new Vector(nextCheckpoint).sub(checkpoint);
+//            final float angle = checkpointVelocity.angle(toNextPoint);
+//            final Vector targetThrust = new Vector(toNextPoint).rotate(angle).add(pod.loc);
+//            answer.x = (int) targetThrust.x;
+//            answer.y = (int) targetThrust.y;
+//            log("Velocity is right, rotation to the next point, a=" + angle);
+//            return;
+//        }
+
+        if (desiredThrust.angle(podOrientation) <= MAX_ANGLE) {
+            final float len2 = desiredThrust.len2();
+            answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
             sTmpVector.set(pod.loc).add(desiredThrust);
             answer.x = (int) sTmpVector.x;
             answer.y = (int) sTmpVector.y;
-            final float len2 = desiredThrust.len2();
-            answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
             log("Thrust is right");
             return;
         }
 
-
-//        final Vector dir = new Vector(checkpoint).sub(pod.loc);
-//        final Vector desired = new Vector(dir).nor().scl(MAX_SPEED); //todo slowing and rotation to the next checkpoint
-//
-//        if (Math.abs(desired.angle(podOrientation)) < 90) {
-//            answer.x = (int) checkpoint.x;
-//            answer.y = (int) checkpoint.y;
-//            if (pod.vel.len() > MAX_SPEED) {
-//                answer.thrust = 0;
-//                log("R: max speed");
-//            } else {
-//                sTmpVector.set(dir).sub(pod.vel);
-//                final float len2 = sTmpVector.len2();
-//                answer.thrust = (int) (len2 > MAX_THRUST_2 ? MAX_THRUST : Math.sqrt(len2));
-//                log("R: force");
-//            }
-//            return;
-//        }
-//
-//        log("R: rotation");
         answer.thrust = 0;
+        //todo fix - optimal rotation
         answer.x = (int) checkpoint.x;
         answer.y = (int) checkpoint.y;
+    }
 
+    private static boolean isRightVelocityAndDirection(Pod pod, Vector desiredSpeed) {
+        final Vector checkpoint = sCheckpoints[pod.nextCheckPointId];
+        final Vector dir = new Vector(checkpoint).sub(pod.loc);
+        final Vector crs = new Vector(dir).rotate(90).nor().scl(CHECKPOINT_RADIUS).add(dir);
+        final float velDirAngle = Math.abs(pod.vel.angle(dir));
+        final float dirRadAngle = Math.abs(dir.angle(crs));
+        if (velDirAngle >= dirRadAngle) {
+            log("velDirAngle " + velDirAngle + ", " + dirRadAngle);
+            return false;
+        }
 
-//        if (pod.vel.len2() == 0) {
-//            answer.x = (int) checkpoint.x;
-//            answer.y = (int) checkpoint.y;
-//            answer.thrust = (int) MAX_THRUST;
-//            log("start");
-//            return;
-//        }
-//
-//        final float angleVelDir = Math.abs(pod.vel.angle(dir));
-//        final float missValue = Math.abs(dir.len() * (float) Math.tan(angleVelDir));
-////        log("dir=" + dir + ", podVel=" + pod.vel);
-//        log("angleVelDir=" + angleVelDir + ", missValue=" + missValue);
-//        if (missValue <= CHECKPOINT_RADIUS) {
-//            // pod's vector of velocity is good
-//            mTmpVector.set(pod.loc).add(pod.vel);
-//            answer.x = (int) mTmpVector.x;
-//            answer.y = (int) mTmpVector.y;
-//            if (angleVelDir <= MAX_ANGLE) {
-//                answer.thrust = (int) MAX_THRUST;
-//                log("vel and angle are right, force");
-//            } else {
-//                answer.thrust = 0;
-//                log("vel is right but angle is wrong, rotate");
-//            }
-//            return;
-//        }
-//
-//        if (angleVelDir <= HALF_MAX_ANGLE) {
-//
-//
-//            return;
-//        }
+        final float mustVelocity = desiredSpeed.len() * RESISTANCE;
+        final float currentVelocity = pod.vel.len();
+        log("mustVelocity " + mustVelocity + ", " + currentVelocity);
+
+        return currentVelocity >= mustVelocity;
     }
 
     private static Vector getDesiredThrust(Pod pod, Vector desiredSpeed) {
@@ -173,10 +161,17 @@ class Player {
         return new Vector(desiredSpeed).sub(nextVelocityWithoutThrust);
     }
 
-    private static Vector getNextDesiredSpeed(Pod pod, Vector checkpoint) {
-        final float speedOnCheckpoint = MIN_SPEED; // todo it depends on angle to the next point
+    private static Vector getDesiredVelocity(Pod pod, Vector checkpoint, Vector outCheckpointVelocity) {
+        final Vector afterNextCheckpoint = getAfterNextCheckpoint(pod);
+        final Vector currentDir = new Vector(checkpoint).sub(pod.loc);
+        final Vector nextDir = new Vector(afterNextCheckpoint).sub(checkpoint);
+
+        final float speedOnCheckpoint = MIN_SPEED + (MAX_SPEED - MIN_SPEED) * Math.abs(currentDir.angle(nextDir)) / 180f;
+        log("speedOnCheckpoint "+ speedOnCheckpoint);
+
         final Vector nextPositionWithoutThrust = new Vector(pod.vel).scl(RESISTANCE).add(pod.loc);
         final Vector dirNextPositionWithoutThrust = new Vector(checkpoint).sub(nextPositionWithoutThrust);
+        outCheckpointVelocity.set(dirNextPositionWithoutThrust).nor().scl(speedOnCheckpoint);
         float rest = dirNextPositionWithoutThrust.len();
         float speed = speedOnCheckpoint;
         if (speed > rest) {
