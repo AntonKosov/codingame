@@ -4,6 +4,8 @@ class Player {
 
     private static final boolean SHOW_LOGS = true;
 
+    private static final boolean RACER_SHIELD_ENABLED = true;
+
     private static final float RESISTANCE = 0.85f;
 //    private static final float RIGHT_CIRCLE_K = 0.3f;
 //    private static final float CIRCLE_MUL_K = 3f;
@@ -114,8 +116,9 @@ class Player {
             answer.thrust = 0;
 
             log("cool");
-            isCollision(pod, answer, sEnemy1, null);
-            isCollision(pod, answer, sEnemy2, null);
+            if (RACER_SHIELD_ENABLED && (isCollision(pod, answer, sEnemy1, null) || isCollision(pod, answer, sEnemy2, null))) {
+                answer.shieldIsActivated = true;
+            }
             return;
         }
 
@@ -137,8 +140,9 @@ class Player {
             answer.x = (int) sTmpVector.x;
             answer.y = (int) sTmpVector.y;
             log("Thrust is right");
-            isCollision(pod, answer, sEnemy1, null);
-            isCollision(pod, answer, sEnemy2, null);
+            if (RACER_SHIELD_ENABLED && (isCollision(pod, answer, sEnemy1, null) || isCollision(pod, answer, sEnemy2, null))) {
+                answer.shieldIsActivated = true;
+            }
             return;
         }
 
