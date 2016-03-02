@@ -2,7 +2,7 @@ import java.util.*;
 
 class Player {
 
-    private static final boolean DEBUG_MODE = true;
+    private static final boolean DEBUG_MODE = false;
 
     private static final boolean RACER_SHIELD_ENABLED = true;
     private static final boolean TWO_RACERS = true;
@@ -194,6 +194,9 @@ class Player {
         //todo fix - optimal rotation
         answer.x = (int) target.x;
         answer.y = (int) target.y;
+        if (RACER_SHIELD_ENABLED && (isCollision(pod, answer, sEnemy1, null) || isCollision(pod, answer, sEnemy2, null))) {
+            answer.shieldIsActivated = true;
+        }
     }
 
     private static boolean isCollision(Pod pod1, Answer pod1A, Pod pod2, Answer pod2A) {
@@ -205,18 +208,18 @@ class Player {
             final Vector pod2Thrust = new Vector(pod2A.x, pod2A.y).nor().scl(pod2A.thrust);
             pod2NextPosition = new Vector(pod2.vel).add(pod2Thrust).add(pod2.loc);
         } else {
-            pod2NextPosition = new Vector(pod2.loc).add(pod2.vel);
+            sTmpVector.set(pod2.vel).add(pod2.prevThrust);
+            pod2NextPosition = new Vector(pod2.loc).add(sTmpVector);
         }
 
-        //todo optimization
         final float dst = pod1NextPosition.dst(pod2NextPosition);
         final boolean isCollision = dst < POD_RADIUS * 2;
 
         if (isCollision) {
             log(">< Collision " + pod1 + "-" + pod2);
-        } /*else {
+        } else {
             log("No collision: " + pod1 + "-" + pod2 + ": " + dst + ", " + pod1NextPosition + ", " + pod2NextPosition);
-        }*/
+        }
 
         return isCollision;
     }
@@ -251,7 +254,7 @@ class Player {
 
         final float nextAngle = 180 - Math.abs(currentDir.angle(nextDir));
         final float speedOnCheckpoint = minVelocity + (maxVelocity - minVelocity) * nextAngle / 180f;
-        log("speedOnCheckpoint "+ speedOnCheckpoint + ", next angle=" + nextAngle);
+//        log("speedOnCheckpoint "+ speedOnCheckpoint + ", next angle=" + nextAngle);
 
         final Vector nextPositionWithoutThrust = new Vector(pod.vel).scl(RESISTANCE).add(pod.loc);
         final Vector dirNextPositionWithoutThrust = new Vector(checkpoint).sub(nextPositionWithoutThrust);
@@ -366,6 +369,7 @@ class Player {
         public int angle;
         public int nextCheckPointId = 1;
         public Role role = Role.Racer;
+        public final Vector prevThrust = new Vector();
 
         public int passedCheckpoints = 0;
 
@@ -374,6 +378,7 @@ class Player {
         }
 
         public void readData(Scanner in) {
+            final Vector prevVelocity = new Vector(vel);
             loc.x = in.nextInt();
             loc.y = in.nextInt();
             vel.x = in.nextInt();
@@ -386,6 +391,7 @@ class Player {
                 passedCheckpoints++;
                 log(name + " passed " + oldTargetCheckpoint + ", left " + (sTotalCheckpoints - passedCheckpoints));
             }
+            prevThrust.set(vel).sub(prevVelocity);
         }
 
         @Override
