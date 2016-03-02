@@ -414,12 +414,15 @@ class Player {
 
         @Override
         public String toString() {
-            final String m = message.isEmpty() ? "" : " " + message;
+            final String m = DEBUG_MODE ? message.isEmpty() ? "" : " " + message : "";
+            String a = x + " " + y + " ";
             if (shieldIsActivated) {
-                return x + " " + y + " SHIELD" + " Shield" + m;
+                a +="SHIELD";
+            } else {
+                a += thrust;
             }
 
-            return x + " " + y + " " + thrust + m;
+            return a + m;
         }
 
         public void addMessage(String m) {
