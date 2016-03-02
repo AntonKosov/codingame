@@ -2,7 +2,7 @@ import java.util.*;
 
 class Player {
 
-    private static final boolean DEBUG_MODE = false;
+    private static final boolean DEBUG_MODE = true;
 
     private static final boolean RACER_SHIELD_ENABLED = true;
     private static final boolean TWO_RACERS = true;
@@ -169,10 +169,8 @@ class Player {
             answer.y = (int) targetLook.y;
             answer.thrust = 0;
 
-            //log("cool");
-            if (RACER_SHIELD_ENABLED && (isCollision(pod, answer, sEnemy1, null) || isCollision(pod, answer, sEnemy2, null))) {
-                answer.shieldIsActivated = true;
-            }
+            log("cool");
+            activateShieldIfNeed(pod, answer);
             return;
         }
 
@@ -183,10 +181,8 @@ class Player {
             sTmpVector.set(pod.loc).add(desiredThrust);
             answer.x = (int) sTmpVector.x;
             answer.y = (int) sTmpVector.y;
-            //log("Thrust is right");
-            if (RACER_SHIELD_ENABLED && (isCollision(pod, answer, sEnemy1, null) || isCollision(pod, answer, sEnemy2, null))) {
-                answer.shieldIsActivated = true;
-            }
+            log("Thrust is right");
+            activateShieldIfNeed(pod, answer);
             return;
         }
 
@@ -194,7 +190,22 @@ class Player {
         //todo fix - optimal rotation
         answer.x = (int) target.x;
         answer.y = (int) target.y;
-        if (RACER_SHIELD_ENABLED && (isCollision(pod, answer, sEnemy1, null) || isCollision(pod, answer, sEnemy2, null))) {
+        log("Rotation pod.a=" + pod.angle);
+        activateShieldIfNeed(pod, answer);
+    }
+
+    private static void activateShieldIfNeed(Pod pod, Answer answer) {
+        if (!RACER_SHIELD_ENABLED) {
+            return;
+        }
+        final boolean enemy1Collision = isCollision(pod, answer, sEnemy1, null);
+        final boolean enemy2Collision = isCollision(pod, answer, sEnemy2, null);
+        final float angle1 = Math.abs(pod.vel.angle(sEnemy1.vel));
+        final float angle2 = Math.abs(pod.vel.angle(sEnemy1.vel));
+        final float minAngle = 30;
+        final boolean isActivateEnemy1 = enemy1Collision && angle1 > minAngle;
+        final boolean isActivateEnemy2 = enemy2Collision && angle2 > minAngle;
+        if (isActivateEnemy1 || isActivateEnemy2) {
             answer.shieldIsActivated = true;
         }
     }
@@ -218,7 +229,7 @@ class Player {
         if (isCollision) {
             log(">< Collision " + pod1 + "-" + pod2);
         } else {
-            log("No collision: " + pod1 + "-" + pod2 + ": " + dst + ", " + pod1NextPosition + ", " + pod2NextPosition);
+            //log("No collision: " + pod1 + "-" + pod2 + ": " + dst + ", " + pod1NextPosition + ", " + pod2NextPosition);
         }
 
         return isCollision;
@@ -278,75 +289,6 @@ class Player {
         return new Vector(dirNextPositionWithoutThrust).nor().scl(speedBefore + rest / (speedBefore - speedAfter));
     }
 
-
-//    private static void calculateAnswer(Answer answerAttacker, Answer answerProtector) {
-//        final Pod attacker = sMyPods[0];
-//        final Pod protector = sMyPods[1];
-//
-//        log("targeta=" + attacker.nextCheckPointId + ", t=" + sCheckpoints[attacker.nextCheckPointId]);
-//
-//        calculateBezier(
-//                attacker.vel,
-//                attacker.loc,
-//                sCheckpoints[attacker.nextCheckPointId],
-//                getAfterNextCheckpoint(attacker),
-//                answerAttacker);
-//
-//        calculateBezier(
-//                protector.vel,
-//                protector.loc,
-//                sCheckpoints[protector.nextCheckPointId],
-//                getAfterNextCheckpoint(protector),
-//                answerProtector);
-//    }
-
-//    private static void calculateBezier(
-//            Vector currentVelocity,
-//            Vector p0,
-//            Vector p1,
-//            Vector p2,
-//            Answer answer) {
-//        float tMin = 0.0f;
-//        float tMax = 1.0f;
-//        float thrustLen2 = 0;
-//        float minDst2 = 0;
-//        boolean isFirstStep = true;
-//        //todo value?
-//        for (int i = 0; i < 20; i++) {
-//            final float t = (tMin + tMax) / 2;
-//            sBP0.set(p0).scl((1 - t) * (1 - t));
-//            sBP1.set(p1).scl(2 * t * (1 - t));
-//            sBP2.set(p2).scl(t * t);
-//            sBPResult.set(sBP0).add(sBP1).add(sBP2);
-//
-//            sBPThrust.set(sBPResult).sub(p0);
-//            sBPNextLocation.set(p0).add(currentVelocity).add(sBPThrust);
-//
-//            final float dst2 = sBPNextLocation.dst2(p1);
-//
-//            thrustLen2 = sBPThrust.len2();
-////            log("t=" + t + ", tl2=" + thrustLen2);
-//            if (isFirstStep || minDst2 > dst2) {
-//                isFirstStep = false;
-//                minDst2 = dst2;
-//                sBPTheBestThrust.set(sBPThrust);
-//                log("t=" + t + ", od=" + minDst2);
-//            }
-//            if (thrustLen2 > MAX_THRUST_2) {
-//                tMax /= 2;
-//            } else {
-//                tMin = tMax;
-//                tMax = (1 + tMax) / 2;
-//            }
-//        }
-//
-//        sBPThrust.set(p0).add(sBPTheBestThrust);
-//        answer.x = (int) sBPThrust.x;
-//        answer.y = (int) sBPThrust.y;
-//        final float thrust2 = sBPTheBestThrust.len2();
-//        answer.thrust = thrust2 > MAX_THRUST_2 ? MAX_THRUST : (int) Math.sqrt(thrust2);
-//    }
-
     private static Vector getAfterNextCheckpoint(final Pod pod) {
         if (pod.nextCheckPointId == sCheckpoints.length - 1) {
             return sCheckpoints[0];
@@ -373,6 +315,8 @@ class Player {
 
         public int passedCheckpoints = 0;
 
+        private boolean mIsFirstRead = true;
+
         public Pod(String name) {
             this.name = name;
         }
@@ -385,6 +329,10 @@ class Player {
             vel.y = in.nextInt();
             vel.scl(RESISTANCE);
             angle = in.nextInt();
+            if (mIsFirstRead) {
+                mIsFirstRead = false;
+                angle = (int) new Vector(1, 0).angle(new Vector(sCheckpoints[1]).sub(loc));
+            }
             final int oldTargetCheckpoint = nextCheckPointId;
             nextCheckPointId = in.nextInt();
             if (nextCheckPointId != oldTargetCheckpoint) {
@@ -414,7 +362,8 @@ class Player {
 
         @Override
         public String toString() {
-            final String m = DEBUG_MODE ? message.isEmpty() ? "" : " " + message : "";
+            final String forDebug = message.isEmpty() ? "" : " " + (shieldIsActivated ? "SHIELD " : "") + message;
+            final String m = DEBUG_MODE ? forDebug : "";
             String a = x + " " + y + " ";
             if (shieldIsActivated) {
                 a +="SHIELD";
