@@ -1,6 +1,8 @@
+package contests;
+
 import java.util.*;
 
-class Player {
+class CodersStrikeBack {
 
     private static final boolean DEBUG_MODE = true;
 
