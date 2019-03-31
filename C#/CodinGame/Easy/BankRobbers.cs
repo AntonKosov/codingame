@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace CodinGame
+namespace CodinGame.Easy
 {
     public class BankRobbers
     {

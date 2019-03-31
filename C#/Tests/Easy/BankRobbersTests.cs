@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using CodinGame;
+using CodinGame.Easy;
 using Xunit;
 
-namespace Tests
+namespace CodinGame.Tests.Easy
 {
     public class BankRobbersTests
     {
