@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace CodinGame.VeryHard
 {
+    // https://www.codingame.com/training/expert/cross-the-lines
     public class CrossTheLines
     {
         static void Main()
@@ -15,7 +16,17 @@ namespace CodinGame.VeryHard
 
         private bool[,] _graph;
 
+        private Node[] _nodes;
+
         private int _numberOfNodes;
+
+        private int _numberOfCrosses;
+
+        private Path _path;
+
+        private readonly Queue<Segment> _uncountedSegments = new Queue<Segment>();
+
+        private readonly HashSet<Segment> _countedSegments = new HashSet<Segment>();
 
         public CrossTheLines(IIOInterface iIOInterface)
         {
@@ -28,80 +39,155 @@ namespace CodinGame.VeryHard
         {
             ReadData();
 
-            int numberOfCrosses = Solve();
+            _numberOfCrosses = 0;
+            _countedSegments.Clear();
+            Solve();
 
-            _iIOInterface.WriteLine(numberOfCrosses.ToString());
+            _iIOInterface.WriteLine(_numberOfCrosses.ToString());
         }
 
-        private int Solve()
+        private void Solve()
         {
-            int result = 0;
-            bool[] visitedNodes = new bool[_numberOfNodes];
-
-            foreach (int node1 in Nodes())
+            while (_uncountedSegments.Count > 0)
             {
-                foreach (int node2 in Nodes())
-                    if (IsConnected(node1, node2) && !visitedNodes[node1])
-                    {
-                        int segmentsInCircle = 0;
-                        int lastNodeIndex = -1;
-                        result += GetNumberOfIntersections(node1, ref visitedNodes, ref segmentsInCircle,
-                            ref lastNodeIndex);
-                    }
+                Segment segment = _uncountedSegments.Dequeue();
+                if (_countedSegments.Contains(segment))
+                    continue;
+                if (LookForCompoundShapeWithStartSegment(segment))
+                    LookForSmallerShapes();
+            }
+        }
+
+        private void LookForSmallerShapes()
+        {
+            // Count tail
+            while (_path.First != _path.Last)
+            {
+                int first = _path.RemoveFirst();
+                int second = _path.First;
+                CountSegment(first, second);
             }
 
-            return result;
-        }
-
-        private int GetNumberOfIntersections(int previousNode, ref bool[] visitedNodes, ref int segmentsInCircle,
-            ref int lastNode)
-        {
-            int crosses = 0;
-            visitedNodes[previousNode] = true;
-            
-            foreach (int node in Nodes())
+            for (int pathIndex = 0; pathIndex < _path.CountNodes - 2; pathIndex++)
             {
-                if (!IsConnected(previousNode, node)) continue;
+                int startNodeIndex = _path[pathIndex];
+                int nextNodeIndex = _path[pathIndex + 1];
+                Segment startSegment = new Segment(_nodes[startNodeIndex], _nodes[nextNodeIndex]);
+                if (_countedSegments.Contains(startSegment))
+                    continue;
 
-                crosses++;
-                SetConnection(previousNode, node, false);
-
-                if (visitedNodes[node]) // circle
+                int segments = 1;
+                int currentNodeIndex = nextNodeIndex;
+                int prevNodeIndex = startNodeIndex;
+                CountSegment(prevNodeIndex, currentNodeIndex);
+                while (currentNodeIndex != startNodeIndex)
                 {
-                    lastNode = node;
-                    segmentsInCircle = 1;
-                    break;
+                    int nextStepNodeIndex = GetNextNode(prevNodeIndex, currentNodeIndex, Direction.Left, true);
+                    prevNodeIndex = currentNodeIndex;
+                    currentNodeIndex = nextStepNodeIndex;
+                    Segment segment = new Segment(_nodes[prevNodeIndex], _nodes[currentNodeIndex]);
+                    segments++;
+                    if (!_countedSegments.Contains(segment))
+                        CountSegment(prevNodeIndex, currentNodeIndex);
                 }
 
-                crosses += GetNumberOfIntersections(node, ref visitedNodes, ref segmentsInCircle, ref lastNode);
-                if (lastNode < 0) continue;
-                
-                segmentsInCircle++;
-                if (lastNode != previousNode) break; // come back in order to find the last node of circle
-                
-                // found the last node of circle
-                if ((segmentsInCircle & 1) == 1) crosses++; // odd number of segments
-                
-                // reset counters
-                segmentsInCircle = 0;
-                lastNode = -1;
+                if (segments % 2 == 1)
+                    _numberOfCrosses++;
             }
 
-            visitedNodes[previousNode] = false;
-            
-            return crosses;
+            _path.Clear();
         }
 
-        private IEnumerable<int> Nodes()
+        private bool LookForCompoundShapeWithStartSegment(Segment segment)
         {
-            for (int i = 0; i < _numberOfNodes; i++)
-                yield return i;
+            _path.AddLast(segment.Node1.Index);
+            _path.AddLast(segment.Node2.Index);
+
+            HashSet<int> visitedNodes = new HashSet<int>();
+            visitedNodes.Add(segment.Node1.Index);
+            visitedNodes.Add(segment.Node2.Index);
+            
+            HashSet<Segment> ignoredSegments = new HashSet<Segment>();
+
+            while (_path.CountNodes > 1)
+            {
+                int nextNodeIndex = GetNextNode(_path.Previous, _path.Last, Direction.Right, false, ignoredSegments);
+                if (nextNodeIndex < 0) // Deadlock
+                {
+                    int lastNodeIndex = _path.RemoveLast(); // Step back
+                    int prevNodeIndex = _path.Last;
+                    CountSegment(prevNodeIndex, lastNodeIndex);
+                    ignoredSegments.Add(segment);
+                    continue;
+                }
+
+                _path.AddLast(nextNodeIndex);
+                if (visitedNodes.Contains(nextNodeIndex))
+                    return true; // A compound shape was found
+                visitedNodes.Add(nextNodeIndex);
+            }
+
+            _path.Clear();
+            return false;
+        }
+
+        private void CountSegment(int nodeIndex1, int nodeIndex2)
+        {
+            _numberOfCrosses++;
+            Segment countedSegment = new Segment(_nodes[nodeIndex1], _nodes[nodeIndex2]);
+            _countedSegments.Add(countedSegment);
+        }
+
+        private int GetNextNode(int prevNodeIndex, int lastNodeIndex, Direction direction, bool allowCountedSegments,
+            HashSet<Segment> ignoredSegments = null)
+        {
+            int nextNode = -1;
+            float? currentAngle = null;
+
+            Node lastNode = _nodes[lastNodeIndex];
+            Vector currentVector = CreateVector(prevNodeIndex, lastNodeIndex);
+
+            for (int nodeIndex = 0; nodeIndex < _numberOfNodes; nodeIndex++)
+            {
+                Node node = _nodes[nodeIndex];
+                if (nodeIndex == prevNodeIndex || !IsConnected(lastNodeIndex, nodeIndex))
+                    continue;
+
+                Segment segment = new Segment(lastNode, node);
+                if (ignoredSegments != null && ignoredSegments.Contains(segment))
+                    continue;
+
+                if (!allowCountedSegments && _countedSegments.Contains(segment))
+                    continue;
+
+                Vector nextVector = CreateVector(lastNodeIndex, nodeIndex);
+                float angle = currentVector.AngleRad(nextVector);
+
+                if (currentAngle == null ||
+                    (direction == Direction.Right ? angle < currentAngle : angle > currentAngle))
+                {
+                    currentAngle = angle;
+                    nextNode = nodeIndex;
+                }
+            }
+
+            return nextNode;
+        }
+
+        private Vector CreateVector(int startNodeIndex, int endNodeIndex)
+        {
+            Node startNode = _nodes[startNodeIndex];
+            Node endNode = _nodes[endNodeIndex];
+            return new Vector(startNode.X - endNode.X, startNode.Y - endNode.Y);
         }
 
         private void ReadData()
         {
+            _uncountedSegments.Clear();
             int numberOfSegments = int.Parse(_iIOInterface.ReadLine());
             _graph = new bool[numberOfSegments * 2, numberOfSegments * 2];
+            _nodes = new Node[numberOfSegments * 2];
+            _path = new Path(_nodes);
             Dictionary<int, int> nodes = new Dictionary<int, int>(); // key - coordinates, value - index
             int nodeIndex = -1;
 
@@ -113,6 +199,7 @@ namespace CodinGame.VeryHard
                 {
                     index = ++nodeIndex;
                     nodes.Add(key, index);
+                    _nodes[index] = new Node(index, x, y);
                 }
 
                 return index;
@@ -126,16 +213,19 @@ namespace CodinGame.VeryHard
                 int x2 = int.Parse(inputs[2]);
                 int y2 = int.Parse(inputs[3]);
 
-                SetConnection(getNodeIndex(x1, y1), getNodeIndex(x2, y2), true);
+                int nodeIndex1 = getNodeIndex(x1, y1);
+                int nodeIndex2 = getNodeIndex(x2, y2);
+                SetConnection(nodeIndex1, nodeIndex2);
+                _uncountedSegments.Enqueue(new Segment(_nodes[nodeIndex1], _nodes[nodeIndex2]));
             }
 
             _numberOfNodes = nodeIndex + 1;
         }
 
-        private void SetConnection(int i1, int i2, bool isConnected)
+        private void SetConnection(int i1, int i2)
         {
-            _graph[i1, i2] = isConnected;
-            _graph[i2, i1] = isConnected;
+            _graph[i1, i2] = true;
+            _graph[i2, i1] = true;
         }
 
         private bool IsConnected(int i1, int i2)
@@ -149,7 +239,7 @@ namespace CodinGame.VeryHard
             void WriteLine(string value);
         }
 
-        public class ConsoleInterface : IIOInterface
+        private class ConsoleInterface : IIOInterface
         {
             public string ReadLine()
             {
@@ -161,6 +251,166 @@ namespace CodinGame.VeryHard
             public void WriteLine(string value)
             {
                 Console.WriteLine(value);
+            }
+        }
+
+        private class Segment
+        {
+            private readonly string _key;
+
+            public Node Node1 { get; }
+            public Node Node2 { get; }
+
+            public Segment(Node node1, Node node2)
+            {
+                Node1 = node1;
+                Node2 = node2;
+
+                Func<Node, Node, string> getKey = (n1, n2) => n1.X + "," + n1.Y + "_" + n2.X + "," + n2.Y;
+                if (Node1.X < Node2.X)
+                    _key = getKey(Node1, Node2);
+                else if (Node1.X > Node2.X)
+                    _key = getKey(Node2, Node1);
+                else
+                    _key = Node1.Y < Node2.Y ? getKey(Node1, Node2) : getKey(Node2, Node1);
+            }
+
+            public override int GetHashCode()
+            {
+                return _key.GetHashCode();
+            }
+
+            public override bool Equals(object obj)
+            {
+                Segment anotherSegment = obj as Segment;
+                if (anotherSegment == null)
+                    return false;
+                return _key.Equals(anotherSegment._key);
+            }
+        }
+
+        private class Node
+        {
+            public int X { get; }
+            public int Y { get; }
+            public int Index { get; }
+
+            public Node(int index, int x, int y)
+            {
+                Index = index;
+                X = x;
+                Y = y;
+            }
+        }
+
+        private class Path //todo ?
+        {
+            private readonly Node[] _nodes; //todo ?
+
+            private readonly List<int> _path = new List<int>();
+
+            public Path(Node[] nodes)
+            {
+                _nodes = nodes;
+            }
+
+            public int this[int index] => _path[index];
+
+            public int CountNodes => _path.Count;
+
+//            public bool IsEmpty => _path.Count == 0;
+
+            public int First => _path[0];
+
+            public int Last => _path[_path.Count - 1];
+
+            public int Previous => _path[_path.Count - 2];
+
+/*
+            public Node LastNode => _nodes[Last];
+
+            public Node PreviousNode => _nodes[Previous];
+*/
+
+            public void AddLast(int nodeIndex)
+            {
+                _path.Add(nodeIndex);
+            }
+
+            public int RemoveFirst()
+            {
+                int nodeIndex = _path[0];
+                _path.RemoveAt(0);
+                return nodeIndex;
+            }
+
+            public int RemoveLast()
+            {
+                int nodeIndex = _path[_path.Count - 1];
+                _path.RemoveAt(_path.Count - 1);
+                return nodeIndex;
+            }
+
+            public void Clear()
+            {
+                _path.Clear();
+            }
+
+/*
+            public bool Contains(int nodeIndex)
+            {
+                for (int i = 0; i < _path.Count - 1; i++)
+                {
+                    if (_path[i] == nodeIndex)
+                        return true;
+                }
+
+                return false;
+            }
+*/
+        }
+
+        private enum Direction
+        {
+            Left,
+            Right
+        }
+
+        private class Vector
+        {
+            public float X { get; }
+            public float Y { get; }
+            public float Z { get; }
+
+            public Vector(float x = 0, float y = 0, float z = 0)
+            {
+                X = x;
+                Y = y;
+                Z = z;
+            }
+
+            public Vector CrossProduct(Vector vector)
+            {
+                float x = Y * vector.Z - Z * vector.Y;
+                float y = Z * vector.X - X * vector.Z;
+                float z = X * vector.Y - Y * vector.X;
+
+                return new Vector(x, y, z);
+            }
+
+            public float DotProduct(Vector vector)
+            {
+                return X * vector.X + Y * vector.Y + Z * vector.Z;
+            }
+
+            public float Magnitude => MathF.Sqrt(X * X + Y * Y + Z * Z);
+
+            public float AngleRad(Vector vector)
+            {
+                float angle = MathF.Acos(DotProduct(vector) / Magnitude / vector.Magnitude);
+                if (CrossProduct(vector).Z < 0)
+                    angle = 2 * MathF.PI - angle;
+                return angle;
             }
         }
     }

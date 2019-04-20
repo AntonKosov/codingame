@@ -81,6 +81,25 @@ namespace Tests.VeryHard
         }
 
         [Fact]
+        public void TouchingTriangles()
+        {
+            var io = new IOInterface(
+                "7\n" +
+                "0 0 10 0\n" +
+                "10 0 10 10\n" +
+                "10 10 0 0\n" +
+                "20 0 30 0\n" +
+                "30 0 30 10\n" +
+                "30 10 20 0\n" +
+                "10 10 20 0");
+            var crossTheLine = new CrossTheLines(io);
+            
+            crossTheLine.Run();
+            
+            Assert.Equal("9", io.Output);
+        }
+
+        [Fact]
         public void Star()
         {
             var io = new IOInterface(
