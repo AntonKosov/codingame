@@ -13,9 +13,9 @@ namespace Tests.VeryHard
                 "1\n" +
                 "0 0 10 10");
             var crossTheLine = new CrossTheLines(io);
-            
+
             crossTheLine.Run();
-            
+
             Assert.Equal("1", io.Output);
         }
 
@@ -27,9 +27,9 @@ namespace Tests.VeryHard
                 "0 0 10 10\n" +
                 "1 1 11 11");
             var crossTheLine = new CrossTheLines(io);
-            
+
             crossTheLine.Run();
-            
+
             Assert.Equal("2", io.Output);
         }
 
@@ -42,9 +42,9 @@ namespace Tests.VeryHard
                 "10 10 10 0\n" +
                 "0 0 10 0");
             var crossTheLine = new CrossTheLines(io);
-            
+
             crossTheLine.Run();
-            
+
             Assert.Equal("4", io.Output);
         }
 
@@ -58,9 +58,9 @@ namespace Tests.VeryHard
                 "0 0 10 0\n" +
                 "0 0 0 10");
             var crossTheLine = new CrossTheLines(io);
-            
+
             crossTheLine.Run();
-            
+
             Assert.Equal("5", io.Output);
         }
 
@@ -74,9 +74,9 @@ namespace Tests.VeryHard
                 "10 10 10 0\n" +
                 "10 0 0 0");
             var crossTheLine = new CrossTheLines(io);
-            
+
             crossTheLine.Run();
-            
+
             Assert.Equal("4", io.Output);
         }
 
@@ -93,10 +93,51 @@ namespace Tests.VeryHard
                 "30 10 20 0\n" +
                 "10 10 20 0");
             var crossTheLine = new CrossTheLines(io);
-            
+
             crossTheLine.Run();
-            
+
             Assert.Equal("9", io.Output);
+        }
+
+        [Fact]
+        public void TouchingSquares()
+        {
+            var io = new IOInterface(
+                "9\n" +
+                "0 0 10 0\n" +
+                "10 0 10 10\n" +
+                "10 10 0 10\n" +
+                "0 10 0 0\n" +
+                "20 0 30 0\n" +
+                "30 0 30 10\n" +
+                "30 10 20 10\n" +
+                "20 10 20 0\n" +
+                "10 10 20 10");
+            var crossTheLine = new CrossTheLines(io);
+
+            crossTheLine.Run();
+
+            Assert.Equal("9", io.Output);
+        }
+
+        [Fact]
+        public void UnconnectedLines2()
+        {
+            var io = new IOInterface(
+                "8\n" +
+                "0 0 0 10\n" +
+                "0 10 10 10\n" +
+                "10 10 10 0\n" +
+                "10 0 0 0\n" +
+                "20 0 20 10\n" +
+                "10 10 15 15\n" +
+                "15 15 20 15\n" +
+                "15 15 15 20");
+            var crossTheLine = new CrossTheLines(io);
+
+            crossTheLine.Run();
+
+            Assert.Equal("8", io.Output);
         }
 
         [Fact]
@@ -108,9 +149,9 @@ namespace Tests.VeryHard
                 "0 0 1 0\n" +
                 "0 0 1 1");
             var crossTheLine = new CrossTheLines(io);
-            
+
             crossTheLine.Run();
-            
+
             Assert.Equal("3", io.Output);
         }
 
@@ -126,9 +167,9 @@ namespace Tests.VeryHard
                 "10 10 20 5\n" +
                 "20 5 10 0");
             var crossTheLine = new CrossTheLines(io);
-            
+
             crossTheLine.Run();
-            
+
             Assert.Equal("7", io.Output);
         }
 

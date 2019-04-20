@@ -60,7 +60,7 @@ namespace CodinGame.VeryHard
 
         private void LookForSmallerShapes()
         {
-            // Count tail
+            // Count tail's nodes
             while (_path.First != _path.Last)
             {
                 int first = _path.RemoveFirst();
@@ -68,28 +68,16 @@ namespace CodinGame.VeryHard
                 CountSegment(first, second);
             }
 
-            for (int pathIndex = 0; pathIndex < _path.CountNodes - 2; pathIndex++)
+            for (int pathIndex = _path.CountNodes - 2; pathIndex >= 0; pathIndex--)
             {
-                int startNodeIndex = _path[pathIndex];
-                int nextNodeIndex = _path[pathIndex + 1];
+                HashSet<Segment> visitedSegments = new HashSet<Segment>();
+                int startNodeIndex = _path[pathIndex + 1];
+                int nextNodeIndex = _path[pathIndex];
                 Segment startSegment = new Segment(_nodes[startNodeIndex], _nodes[nextNodeIndex]);
                 if (_countedSegments.Contains(startSegment))
                     continue;
 
-                int segments = 1;
-                int currentNodeIndex = nextNodeIndex;
-                int prevNodeIndex = startNodeIndex;
-                CountSegment(prevNodeIndex, currentNodeIndex);
-                while (currentNodeIndex != startNodeIndex)
-                {
-                    int nextStepNodeIndex = GetNextNode(prevNodeIndex, currentNodeIndex, Direction.Left, true);
-                    prevNodeIndex = currentNodeIndex;
-                    currentNodeIndex = nextStepNodeIndex;
-                    Segment segment = new Segment(_nodes[prevNodeIndex], _nodes[currentNodeIndex]);
-                    segments++;
-                    if (!_countedSegments.Contains(segment))
-                        CountSegment(prevNodeIndex, currentNodeIndex);
-                }
+                int segments = LookForSmallSegment(startNodeIndex, startNodeIndex, nextNodeIndex, visitedSegments);
 
                 if (segments % 2 == 1)
                     _numberOfCrosses++;
@@ -98,6 +86,30 @@ namespace CodinGame.VeryHard
             _path.Clear();
         }
 
+        private int LookForSmallSegment(int startNodeIndex, int prevNodeIndex, int currentNodeIndex,
+            HashSet<Segment> visitedSegments)
+        {
+            CountSegment(prevNodeIndex, currentNodeIndex);
+            visitedSegments.Add(new Segment(_nodes[prevNodeIndex], _nodes[currentNodeIndex]));
+
+            while (true)
+            {
+                int nextStepNodeIndex = GetNextNode(prevNodeIndex, currentNodeIndex, Direction.Left, true, visitedSegments);
+                if (nextStepNodeIndex < 0) // Deadlock
+                    return -1;
+
+                CountSegment(currentNodeIndex, nextStepNodeIndex);
+                if (nextStepNodeIndex == startNodeIndex)
+                    return 2;
+
+                int segments = LookForSmallSegment(startNodeIndex, currentNodeIndex, nextStepNodeIndex, visitedSegments);
+                if (segments > 0)
+                {
+                    return segments + 1;
+                }
+            }
+        }
+        
         private bool LookForCompoundShapeWithStartSegment(Segment segment)
         {
             _path.AddLast(segment.Node1.Index);
@@ -112,13 +124,17 @@ namespace CodinGame.VeryHard
             while (_path.CountNodes > 1)
             {
                 int nextNodeIndex = GetNextNode(_path.Previous, _path.Last, Direction.Right, false, ignoredSegments);
-                if (nextNodeIndex < 0) // Deadlock
+                if (nextNodeIndex < 0) // Deadlock?
                 {
-                    int lastNodeIndex = _path.RemoveLast(); // Step back
-                    int prevNodeIndex = _path.Last;
-                    CountSegment(prevNodeIndex, lastNodeIndex);
-                    ignoredSegments.Add(segment);
-                    continue;
+                    nextNodeIndex = GetNextNode(_path.Previous, _path.Last, Direction.Left, true, ignoredSegments);
+                    if (nextNodeIndex < 0)
+                    {
+                        int lastNodeIndex = _path.RemoveLast(); // Step back
+                        int prevNodeIndex = _path.Last;
+                        CountSegment(prevNodeIndex, lastNodeIndex);
+                        ignoredSegments.Add(segment);
+                        continue;
+                    }
                 }
 
                 _path.AddLast(nextNodeIndex);
@@ -133,9 +149,12 @@ namespace CodinGame.VeryHard
 
         private void CountSegment(int nodeIndex1, int nodeIndex2)
         {
-            _numberOfCrosses++;
             Segment countedSegment = new Segment(_nodes[nodeIndex1], _nodes[nodeIndex2]);
-            _countedSegments.Add(countedSegment);
+            if (!_countedSegments.Contains(countedSegment))
+            {
+                _numberOfCrosses++;
+                _countedSegments.Add(countedSegment);
+            }
         }
 
         private int GetNextNode(int prevNodeIndex, int lastNodeIndex, Direction direction, bool allowCountedSegments,
@@ -409,7 +428,7 @@ namespace CodinGame.VeryHard
             {
                 float angle = MathF.Acos(DotProduct(vector) / Magnitude / vector.Magnitude);
                 if (CrossProduct(vector).Z < 0)
-                    angle = 2 * MathF.PI - angle;
+                    angle = -angle;
                 return angle;
             }
         }
