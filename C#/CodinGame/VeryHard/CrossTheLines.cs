@@ -94,7 +94,7 @@ namespace CodinGame.VeryHard
 
             while (true)
             {
-                int nextStepNodeIndex = GetNextNode(prevNodeIndex, currentNodeIndex, Direction.Left, true, visitedSegments);
+                int nextStepNodeIndex = GetNextNode(prevNodeIndex, currentNodeIndex, Direction.Left, visitedSegments);
                 if (nextStepNodeIndex < 0) // Deadlock
                     return -1;
 
@@ -102,14 +102,15 @@ namespace CodinGame.VeryHard
                 if (nextStepNodeIndex == startNodeIndex)
                     return 2;
 
-                int segments = LookForSmallSegment(startNodeIndex, currentNodeIndex, nextStepNodeIndex, visitedSegments);
+                int segments =
+                    LookForSmallSegment(startNodeIndex, currentNodeIndex, nextStepNodeIndex, visitedSegments);
                 if (segments > 0)
                 {
                     return segments + 1;
                 }
             }
         }
-        
+
         private bool LookForCompoundShapeWithStartSegment(Segment segment)
         {
             _path.AddLast(segment.Node1.Index);
@@ -118,15 +119,15 @@ namespace CodinGame.VeryHard
             HashSet<int> visitedNodes = new HashSet<int>();
             visitedNodes.Add(segment.Node1.Index);
             visitedNodes.Add(segment.Node2.Index);
-            
+
             HashSet<Segment> ignoredSegments = new HashSet<Segment>();
 
             while (_path.CountNodes > 1)
             {
-                int nextNodeIndex = GetNextNode(_path.Previous, _path.Last, Direction.Right, false, ignoredSegments);
+                int nextNodeIndex = GetNextNode(_path.Previous, _path.Last, Direction.Right, ignoredSegments);
                 if (nextNodeIndex < 0) // Deadlock?
                 {
-                    nextNodeIndex = GetNextNode(_path.Previous, _path.Last, Direction.Left, true, ignoredSegments);
+                    nextNodeIndex = GetNextNode(_path.Previous, _path.Last, Direction.Left, ignoredSegments);
                     if (nextNodeIndex < 0)
                     {
                         int lastNodeIndex = _path.RemoveLast(); // Step back
@@ -157,11 +158,12 @@ namespace CodinGame.VeryHard
             }
         }
 
-        private int GetNextNode(int prevNodeIndex, int lastNodeIndex, Direction direction, bool allowCountedSegments,
+        private int GetNextNode(int prevNodeIndex, int lastNodeIndex, Direction direction,
             HashSet<Segment> ignoredSegments = null)
         {
             int nextNode = -1;
             float? currentAngle = null;
+            bool isCurrentCounted = false;
 
             Node lastNode = _nodes[lastNodeIndex];
             Vector currentVector = CreateVector(prevNodeIndex, lastNodeIndex);
@@ -176,17 +178,35 @@ namespace CodinGame.VeryHard
                 if (ignoredSegments != null && ignoredSegments.Contains(segment))
                     continue;
 
-                if (!allowCountedSegments && _countedSegments.Contains(segment))
-                    continue;
-
                 Vector nextVector = CreateVector(lastNodeIndex, nodeIndex);
                 float angle = currentVector.AngleRad(nextVector);
 
-                if (currentAngle == null ||
-                    (direction == Direction.Right ? angle < currentAngle : angle > currentAngle))
+                bool isCounted = _countedSegments.Contains(segment);
+                bool isBetterAngle = currentAngle == null ||
+                                     (direction == Direction.Right ? angle < currentAngle : angle > currentAngle);
+
+                if (isCounted)
+                {
+                    if (isCurrentCounted)
+                    {
+                        if (!isBetterAngle)
+                        {
+                            currentAngle = angle;
+                            nextNode = nodeIndex;
+                        }
+                    }
+                    else if (isBetterAngle)
+                    {
+                        currentAngle = angle;
+                        nextNode = nodeIndex;
+                        isCurrentCounted = true;
+                    }
+                }
+                else if (isBetterAngle)
                 {
                     currentAngle = angle;
                     nextNode = nodeIndex;
+                    isCurrentCounted = false;
                 }
             }
 
