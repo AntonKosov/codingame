@@ -144,21 +144,42 @@ namespace Tests.VeryHard
         public void Triforce()
         {
             var io = new IOInterface(
-            "9\n" +
-            "0 0 5 10\n" +
-            "0 0 10 0\n" +
-            "10 0 5 10\n" +
-            "10 0 20 0\n" +
-            "10 0 15 10\n" +
-            "20 0 15 10\n" +
-            "5 10 15 10\n" +
-            "5 10 10 20\n" +
-            "15 10 10 20");
+                "9\n" +
+                "0 0 5 10\n" +
+                "0 0 10 0\n" +
+                "10 0 5 10\n" +
+                "10 0 20 0\n" +
+                "10 0 15 10\n" +
+                "20 0 15 10\n" +
+                "5 10 15 10\n" +
+                "5 10 10 20\n" +
+                "15 10 10 20");
             var crossTheLine = new CrossTheLines(io);
 
             crossTheLine.Run();
 
             Assert.Equal("12", io.Output);
+        }
+
+        [Fact]
+        public void BrokenTriforce()
+        {
+            var io = new IOInterface(
+                "9\n" +
+                "0 0 5 10\n" +
+                "0 0 10 0\n" +
+                "10 0 5 10\n" +
+                "10 0 20 0\n" +
+                "10 0 14 10\n" +
+                "20 0 15 10\n" +
+                "5 10 14 10\n" +
+                "5 10 10 20\n" +
+                "15 10 10 20");
+            var crossTheLine = new CrossTheLines(io);
+
+            crossTheLine.Run();
+
+            Assert.Equal("10", io.Output);
         }
 
         [Fact]
