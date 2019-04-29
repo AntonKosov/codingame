@@ -49,6 +49,23 @@ namespace Tests.VeryHard
         }
 
         [Fact]
+        public void TwoTriangles()
+        {
+            var io = new IOInterface(
+                "5\n" +
+                "0 0 10 0\n" +
+                "10 0 10 10\n" +
+                "10 10 0 10\n" +
+                "0 10 0 0\n" +
+                "0 10 10 0");
+            var crossTheLine = new CrossTheLines(io);
+
+            crossTheLine.Run();
+
+            Assert.Equal("6", io.Output);
+        }
+
+        [Fact]
         public void TriangleAndTail()
         {
             var io = new IOInterface(
@@ -213,6 +230,47 @@ namespace Tests.VeryHard
             crossTheLine.Run();
 
             Assert.Equal("7", io.Output);
+        }
+
+        [Fact]
+        public void ItIsANonConvexTrap()
+        {
+            var io = new IOInterface(
+                "8\n" +
+                "0 0 10 0\n" +
+                "10 0 8 8\n" +
+                "8 8 4 6\n" +
+                "4 6 2 8\n" +
+                "2 8 0 0\n" +
+                "2 2 6 2\n" +
+                "6 2 4 4\n" +
+                "4 4 2 2");
+            var crossTheLine = new CrossTheLines(io);
+
+            crossTheLine.Run();
+
+            Assert.Equal("10", io.Output);
+        }
+
+        [Fact]
+        public void AlmostDestroyedTriforce()
+        {
+            var io = new IOInterface(
+                "9\n" +
+                "0 0 5 10\n" +
+                "0 0 10 0\n" +
+                "10 1 5 10\n" +
+                "10 0 20 0\n" +
+                "10 1 14 10\n" +
+                "20 0 15 10\n" +
+                "5 10 14 10\n" +
+                "5 10 10 20\n" +
+                "15 10 10 20");
+            var crossTheLine = new CrossTheLines(io);
+
+            crossTheLine.Run();
+
+            Assert.Equal("10", io.Output);
         }
 
         private class IOInterface : CrossTheLines.IIOInterface

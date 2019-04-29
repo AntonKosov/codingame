@@ -18,6 +18,8 @@ namespace CodinGame.VeryHard
 
         private readonly List<Coordinate> _coordinates = new List<Coordinate>();
 
+        private int[] _groups;
+
         private NodeColor[] _colors;
 
         private int[] _parents;
@@ -74,20 +76,22 @@ namespace CodinGame.VeryHard
             if (_colors[currentNodeIndex] == NodeColor.Gray)
             {
                 List<int> polygon = BuildPolygon(currentNodeIndex, previousNodeIndex);
-//                if (IsAnyNodeInside(polygon))
-//                    return;
+                if (IsAnyConnectedNodeInside(polygon))
+                    return;
 
-                int edges = 0;
                 bool isNewCycle = false;
                 for (int i = 0; i < polygon.Count - 1; i++)
                 {
                     int node1 = polygon[i];
                     int node2 = polygon[i + 1];
-                    edges++;
                     isNewCycle |= CountSegment(node1, node2);
+
+                    Console.Error.Write(node1 + " "); // todo remove
                 }
 
-                if (isNewCycle && edges % 2 == 1)
+                Console.Error.WriteLine(); // todo remove
+
+                if (isNewCycle && (polygon.Count - 1) % 2 == 1)
                     _crosses++;
 
                 return;
@@ -123,7 +127,7 @@ namespace CodinGame.VeryHard
             return polygon;
         }
 
-        private bool IsAnyNodeInside(List<int> polygon)
+        private bool IsAnyConnectedNodeInside(List<int> polygon)
         {
             // Ray casting algorithm
             int crosses = 0;
@@ -135,11 +139,16 @@ namespace CodinGame.VeryHard
                 Coordinate nodeCoordinate = _coordinates[nodeIndex];
                 for (int i = 0; i < polygon.Count - 2; i++)
                 {
-                    Coordinate c0 = _coordinates[polygon[i]];
-                    Coordinate c1 = _coordinates[polygon[i + 1]];
+                    int node0 = polygon[i];
+                    int node1 = polygon[i + 1];
+                    if (_groups[node0] != _groups[nodeIndex])
+                        continue;
+
+                    Coordinate c0 = _coordinates[node0];
+                    Coordinate c1 = _coordinates[node1];
                     if (c0.X > nodeCoordinate.X && c1.X > nodeCoordinate.X || // on the right
                         c0.Y > nodeCoordinate.Y && c1.Y > nodeCoordinate.Y || // above
-                        c0.Y < nodeCoordinate.Y && c1.Y < nodeCoordinate.Y)   // below
+                        c0.Y < nodeCoordinate.Y && c1.Y < nodeCoordinate.Y) // below
                         continue;
 
                     if (c0.X == c1.X) // vertical
@@ -206,17 +215,44 @@ namespace CodinGame.VeryHard
                 SetConnection(nodeIndex1, nodeIndex2);
             }
 
-            _colors = new NodeColor[nodeIndex + 1];
-            _parents = new int[nodeIndex + 1];
+            int nodes = nodeIndex + 1;
+            _colors = new NodeColor[nodes];
+            _parents = new int[nodes];
+            _groups = new int[nodes];
+            SetGroups();
         }
 
-        private void SetConnection(int i1, int i2)
+        private void SetGroups()
         {
-            int maxIndex = Math.Max(i1, i2);
+            int groupsCounter = 0;
+            for (int i = 0; i < _groups.Length; i++)
+            {
+                if (_groups[i] != 0)
+                    continue;
+
+                groupsCounter++;
+                List<int> vertices = new List<int> {i};
+                while (vertices.Count > 0)
+                {
+                    _groups[vertices[0]] = groupsCounter;
+                    vertices.RemoveAt(0);
+                    for (int j = 0; j < _connections[i].Count; j++)
+                    {
+                        int connectedNodeIndex = _connections[i][j]; 
+                        if (_groups[connectedNodeIndex] == 0)
+                            vertices.Add(connectedNodeIndex);
+                    }
+                }
+            }
+        }
+
+        private void SetConnection(int i0, int i1)
+        {
+            int maxIndex = Math.Max(i0, i1);
             while (_connections.Count <= maxIndex)
                 _connections.Add(new List<int>());
-            _connections[i1].Add(i2);
-            _connections[i2].Add(i1);
+            _connections[i0].Add(i1);
+            _connections[i1].Add(i0);
         }
 
         public interface IIOInterface
