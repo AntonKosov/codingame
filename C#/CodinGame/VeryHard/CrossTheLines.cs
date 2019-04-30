@@ -20,15 +20,15 @@ namespace CodinGame.VeryHard
 
         private int[] _groups;
 
-        private NodeColor[] _colors;
+        private Color[] _colors;
+
+        private readonly Dictionary<int, Color> _segmentsColors = new Dictionary<int, Color>();
 
         private int[] _parents;
 
-        private int _segments;
+        private int _numberOfEdges;
 
-        private int _crosses;
-
-        private readonly HashSet<int> _countedSegments = new HashSet<int>();
+        private readonly List<List<int>> _polygons = new List<List<int>>();
 
         public CrossTheLines(IIOInterface iIOInterface)
         {
@@ -41,73 +41,114 @@ namespace CodinGame.VeryHard
         {
             ReadData();
 
-            _crosses = 0;
-            _countedSegments.Clear();
-            Solve();
+            FindCycles();
 
-            _iIOInterface.WriteLine(_crosses.ToString());
+            int crosses = CountCrosses();
+            _iIOInterface.WriteLine(crosses.ToString());
         }
 
-        private void Solve()
+        private void FindCycles()
         {
             for (int nodeIndex = 0; nodeIndex < _connections.Count; nodeIndex++)
             {
-                if (_colors[nodeIndex] != NodeColor.Black)
+                if (_colors[nodeIndex] == Color.Black) continue;
+
+                _colors[nodeIndex] = Color.Gray;
+                List<int> nextConnections = _connections[nodeIndex];
+                foreach (var nextConnection in nextConnections)
                 {
-                    _colors[nodeIndex] = NodeColor.Gray;
-                    List<int> nextConnections = _connections[nodeIndex];
-                    for (int i = 0; i < nextConnections.Count; i++)
+                    while (true)
                     {
-                        LookForCycles(nodeIndex, nextConnections[i]);
+                        if (LookForCycles(nodeIndex, nextConnection) == 0)
+                            break;
                     }
-
-                    _colors[nodeIndex] = NodeColor.Black;
                 }
-            }
 
-            _crosses += _segments - _countedSegments.Count;
+                _colors[nodeIndex] = Color.Black;
+            }
         }
 
-        private void LookForCycles(int previousNodeIndex, int currentNodeIndex)
+        private int CountCrosses()
         {
-            if (_colors[currentNodeIndex] == NodeColor.Black)
-                return;
-
-            if (_colors[currentNodeIndex] == NodeColor.Gray)
+            HashSet<int> countedEdges = new HashSet<int>();
+            HashSet<int> countedAsTwo = new HashSet<int>();
+            Dictionary<int, int> commonEdges = new Dictionary<int, int>();
+            foreach (List<int> polygon in _polygons)
+                foreach (int segmentId in polygon)
+                    if (commonEdges.ContainsKey(segmentId))
+                        commonEdges[segmentId] = 2;
+                    else
+                        commonEdges.Add(segmentId, 1);
+            
+            int crosses = 0;
+            foreach (List<int> polygon in _polygons)
             {
-                List<int> polygon = BuildPolygon(currentNodeIndex, previousNodeIndex);
-                if (IsAnyConnectedNodeInside(polygon))
-                    return;
-
-                bool isNewCycle = false;
-                for (int i = 0; i < polygon.Count - 1; i++)
+                bool hasCommonEdges = false;
+                foreach (int segmentId in polygon)
                 {
-                    int node1 = polygon[i];
-                    int node2 = polygon[i + 1];
-                    isNewCycle |= CountSegment(node1, node2);
-
-                    Console.Error.Write(node1 + " "); // todo remove
+                    hasCommonEdges |= commonEdges[segmentId] == 2;
+                    if (countedEdges.Contains(segmentId)) continue;
+                    
+                    crosses++;
+                    if (commonEdges[segmentId] == 2 && !countedAsTwo.Contains(segmentId))
+                    {
+                        crosses++;
+                        countedAsTwo.Add(segmentId);
+                    }
+                    
+                    countedEdges.Add(segmentId);
                 }
 
-                Console.Error.WriteLine(); // todo remove
+                if (!hasCommonEdges && polygon.Count % 2 == 1)
+                    crosses++;
+            }
 
-                if (isNewCycle && (polygon.Count - 1) % 2 == 1)
-                    _crosses++;
+            crosses += _numberOfEdges - countedEdges.Count;
 
-                return;
+            return crosses;
+        }
+
+        private int LookForCycles(int previousNodeIndex, int currentNodeIndex)
+        {
+            if (_colors[currentNodeIndex] == Color.Black)
+                return 0;
+
+            if (_colors[currentNodeIndex] == Color.Gray)
+            {
+                List<int> polygon = BuildPolygon(currentNodeIndex, previousNodeIndex);
+                int stepsBack = TryToFindSmallerCycle(polygon);
+                if (stepsBack > 0) return stepsBack;
+                SetSegmentColor(polygon[0], polygon[polygon.Count - 2],
+                    Color.Black); //todo rename all: segment xor edge
+
+                List<int> edges = new List<int>();
+                for (int i = 0; i < polygon.Count - 1; i++)
+                    edges.Add(GetSegmentId(polygon[i], polygon[i + 1]));
+                _polygons.Add(edges);
+
+                return 0;
             }
 
             _parents[currentNodeIndex] = previousNodeIndex;
-            _colors[currentNodeIndex] = NodeColor.Gray;
+            _colors[currentNodeIndex] = Color.Gray;
             List<int> nextConnections = _connections[currentNodeIndex];
             for (int i = 0; i < nextConnections.Count; i++)
             {
                 int nextNodeIndex = nextConnections[i];
-                if (_parents[currentNodeIndex] != nextNodeIndex)
-                    LookForCycles(currentNodeIndex, nextNodeIndex);
+                if (_parents[currentNodeIndex] != nextNodeIndex &&
+                    GetSegmentColor(currentNodeIndex, nextNodeIndex) != Color.Black)
+                {
+                    int stepsBack = LookForCycles(currentNodeIndex, nextNodeIndex);
+                    if (stepsBack > 0)
+                    {
+                        _colors[currentNodeIndex] = Color.White;
+                        return stepsBack - 1;
+                    }
+                }
             }
 
-            _colors[currentNodeIndex] = NodeColor.Black;
+            _colors[currentNodeIndex] = Color.Black;
+            return 0;
         }
 
         private List<int> BuildPolygon(int lastNodeIndex, int prevNodeIndex)
@@ -127,64 +168,174 @@ namespace CodinGame.VeryHard
             return polygon;
         }
 
-        private bool IsAnyConnectedNodeInside(List<int> polygon)
+        private int TryToFindSmallerCycle(List<int> polygon)
+        {
+            for (int i = 1; i < polygon.Count - 2; i++)
+            {
+                int currentNode = polygon[i];
+                List<int> nextNodes = _connections[currentNode];
+                for (int j = 0; j < nextNodes.Count; j++)
+                {
+                    int nextNode = nextNodes[j];
+                    if (_colors[nextNode] == Color.Black ||
+                        polygon[i - 1] == nextNode ||
+                        polygon[i + 1] == nextNode ||
+                        GetSegmentColor(currentNode, nextNode) == Color.Black)
+                        continue;
+
+                    Coordinate c0 = _coordinates[currentNode];
+                    Coordinate c1 = _coordinates[nextNode];
+                    float x = (c0.X + c1.X) / 2f;
+                    float y = (c0.Y + c1.Y) / 2f;
+                    if (!IsPointInside(polygon, x, y))
+                        continue;
+
+                    var localColors = new Color[_colors.Length];
+                    localColors[currentNode] = Color.Gray;
+                    if (IsConnectedInside(nextNode, localColors))
+                    {
+                        Swap(nextNodes, 0, j);
+                        return polygon.Count - i;
+                    }
+                }
+            }
+
+            return 0;
+        }
+
+        private bool IsConnectedInside(int currentNodeIndex, Color[] localColors)
+        {
+            if (_colors[currentNodeIndex] == Color.Gray || localColors[currentNodeIndex] == Color.Gray)
+                return true;
+
+            localColors[currentNodeIndex] = Color.Gray;
+            List<int> nextNodes = _connections[currentNodeIndex];
+            for (int i = 0; i < nextNodes.Count; i++)
+            {
+                int nextNodeIndex = nextNodes[i];
+                if (localColors[nextNodeIndex] == Color.Black) continue;
+                if (IsConnectedInside(nextNodeIndex, localColors))
+                {
+                    Swap(nextNodes, 0, i);
+                    return true;
+                }
+            }
+
+            localColors[currentNodeIndex] = Color.Black;
+            return false;
+        }
+
+        private static void Swap(List<int> list, int index0, int index1)
+        {
+            if (index0 == index1) return;
+            int tmp = list[index0];
+            list[index0] = list[index1];
+            list[index1] = tmp;
+        }
+
+        /*private bool HasDirectConnectionInside(List<int> polygon)
+        {
+            HashSet<int> checkedNodes = new HashSet<int>();
+            HashSet<int> polygonNodes = new HashSet<int>(polygon);
+            for (int i = 0; i < polygon.Count - 2; i++)
+            {
+                int node = polygon[i];
+                for (int j = 0; j < _connections[i].Count; j++)
+                {
+                    int connectedNode = _connections[i][j];
+                    if (!polygonNodes.Contains(connectedNode) || checkedNodes.Contains(connectedNode))
+                        continue;
+
+                    Coordinate c0 = _coordinates[node];
+                    Coordinate c1 = _coordinates[connectedNode];
+                    float x = (c0.X + c1.X) / 2f;
+                    float y = (c0.Y + c1.Y) / 2f;
+                    if (IsPointInside(polygon, x, y))
+                        return true;
+                }
+                    
+                checkedNodes.Add(node);
+            }
+
+            return false;
+        }*/
+
+        private bool IsPointInside(List<int> polygon, float x, float y)
         {
             // Ray casting algorithm
             int crosses = 0;
-            for (int nodeIndex = 0; nodeIndex < _connections.Count; nodeIndex++)
+            for (int i = 0; i < polygon.Count - 1; i++)
             {
-                if (polygon.Contains(nodeIndex))
+                int node0 = polygon[i];
+                int node1 = polygon[i + 1];
+//                if (GetSegmentColor(node0, node1) == Color.Black) continue; //todo ???
+                Coordinate c0 = _coordinates[node0];
+                Coordinate c1 = _coordinates[node1];
+                if (c0.X > x && c1.X > x || // on the right
+                    c0.Y > y && c1.Y > y || // above
+                    c0.Y < y && c1.Y < y) // below
                     continue;
 
-                Coordinate nodeCoordinate = _coordinates[nodeIndex];
-                for (int i = 0; i < polygon.Count - 2; i++)
+                if (c0.X == c1.X) // vertical
                 {
-                    int node0 = polygon[i];
-                    int node1 = polygon[i + 1];
-                    if (_groups[node0] != _groups[nodeIndex])
-                        continue;
-
-                    Coordinate c0 = _coordinates[node0];
-                    Coordinate c1 = _coordinates[node1];
-                    if (c0.X > nodeCoordinate.X && c1.X > nodeCoordinate.X || // on the right
-                        c0.Y > nodeCoordinate.Y && c1.Y > nodeCoordinate.Y || // above
-                        c0.Y < nodeCoordinate.Y && c1.Y < nodeCoordinate.Y) // below
-                        continue;
-
-                    if (c0.X == c1.X) // vertical
-                    {
-                        crosses++;
-                        continue;
-                    }
-
-                    float crossPointX = 1f * (c0.X - c1.X) * (nodeCoordinate.Y - c1.Y) / (c0.Y - c1.Y) + c1.X;
-                    if (crossPointX < nodeCoordinate.X)
-                        crosses++;
+                    crosses++;
+                    continue;
                 }
+
+                float crossPointX = 1f * (c0.X - c1.X) * (y - c1.Y) / (c0.Y - c1.Y) + c1.X;
+                if (crossPointX < x)
+                    crosses++;
             }
 
             return crosses % 2 == 1;
         }
 
-        private bool CountSegment(int nodeIndex1, int nodeIndex2)
+        /*private bool IsAnyConnectedNodeInside(List<int> polygon)
+        {
+            int group = _groups[polygon[0]];
+            for (int nodeIndex = 0; nodeIndex < _connections.Count; nodeIndex++)
+            {
+                if (_groups[nodeIndex] != group || polygon.Contains(nodeIndex))
+                    continue;
+                
+                Coordinate nodeCoordinate = _coordinates[nodeIndex];
+                if (IsPointInside(polygon, nodeCoordinate.X, nodeCoordinate.Y))
+                    return true;
+            }
+
+            return false;
+        }*/
+
+        private Color GetSegmentColor(int nodeIndex1, int nodeIndex2)
+        {
+            int segmentId = GetSegmentId(nodeIndex1, nodeIndex2);
+            Color color;
+            return _segmentsColors.TryGetValue(segmentId, out color) ? color : Color.White;
+        }
+
+        private void SetSegmentColor(int nodeIndex1, int nodeIndex2, Color color)
+        {
+            int segmentId = GetSegmentId(nodeIndex1, nodeIndex2);
+            if (_segmentsColors.ContainsKey(segmentId))
+                _segmentsColors[segmentId] = color;
+            else
+                _segmentsColors.Add(segmentId, color);
+        }
+
+        private static int GetSegmentId(int nodeIndex1, int nodeIndex2)
         {
             int firstNodeIndex = Math.Min(nodeIndex1, nodeIndex2);
             int secondNodeIndex = Math.Max(nodeIndex1, nodeIndex2);
-            int segment = firstNodeIndex * 100 + secondNodeIndex;
-            if (_countedSegments.Contains(segment))
-                return false;
-
-            _crosses++;
-            _countedSegments.Add(segment);
-            return true;
+            return firstNodeIndex * 100 + secondNodeIndex;
         }
 
         private void ReadData()
         {
             _connections.Clear();
             _coordinates.Clear();
-            _crosses = 0;
-            _segments = int.Parse(_iIOInterface.ReadLine());
+            _polygons.Clear();
+            _segmentsColors.Clear();
+            _numberOfEdges = int.Parse(_iIOInterface.ReadLine());
             Dictionary<int, int> nodesDictionary = new Dictionary<int, int>(); // key - coordinates, value - index
             int nodeIndex = -1;
 
@@ -202,7 +353,7 @@ namespace CodinGame.VeryHard
                 return index;
             };
 
-            for (int i = 0; i < _segments; i++)
+            for (int i = 0; i < _numberOfEdges; i++)
             {
                 string[] inputs = _iIOInterface.ReadLine().Split(' ');
                 int x1 = int.Parse(inputs[0]);
@@ -216,7 +367,7 @@ namespace CodinGame.VeryHard
             }
 
             int nodes = nodeIndex + 1;
-            _colors = new NodeColor[nodes];
+            _colors = new Color[nodes];
             _parents = new int[nodes];
             _groups = new int[nodes];
             SetGroups();
@@ -238,7 +389,7 @@ namespace CodinGame.VeryHard
                     vertices.RemoveAt(0);
                     for (int j = 0; j < _connections[i].Count; j++)
                     {
-                        int connectedNodeIndex = _connections[i][j]; 
+                        int connectedNodeIndex = _connections[i][j];
                         if (_groups[connectedNodeIndex] == 0)
                             vertices.Add(connectedNodeIndex);
                     }
@@ -276,7 +427,7 @@ namespace CodinGame.VeryHard
             }
         }
 
-        private enum NodeColor
+        private enum Color
         {
             White,
             Gray,
@@ -292,6 +443,11 @@ namespace CodinGame.VeryHard
             {
                 X = x;
                 Y = y;
+            }
+
+            public override string ToString()
+            {
+                return X + ", " + Y;
             }
         }
     }
