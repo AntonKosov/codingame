@@ -1,3 +1,5 @@
+package easy
+
 import java.lang.Exception
 import java.util.*
 
@@ -28,7 +30,7 @@ class GhostLegs {
 /*
     companion object {
         @JvmStatic
-        fun main(args: Array<String>) {
+        fun easy.main(args: Array<String>) {
         }
     }
 */
