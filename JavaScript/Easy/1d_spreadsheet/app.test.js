@@ -19,6 +19,10 @@ const testRunner = (cells, expectedResult) => {
     expect(expectedResultIndex).toBe(expectedResult.length);
 };
 
+test('No cells', () => {
+    testRunner([], []);
+});
+
 test('Values only', () => {
     testRunner(
         ["VALUE 3 _", "VALUE 5 _"],
