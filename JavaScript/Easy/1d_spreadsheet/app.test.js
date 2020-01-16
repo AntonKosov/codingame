@@ -1,12 +1,12 @@
-const spreadsheet = require("./app");
+const codinggame_1d_spreadsheet = require("./app");
 
 const testRunner = (cells, expectedResult) => {
-    const readline = (() => {
-        const input = [cells.length, ...cells];
+    const input = (() => {
+        const inputLines = [cells.length, ...cells];
 
         let inputIndex = 0;
 
-        return () => { return input[inputIndex++]; };
+        return () => { return inputLines[inputIndex++]; };
     })();
 
     let expectedResultIndex = 0;
@@ -14,7 +14,7 @@ const testRunner = (cells, expectedResult) => {
         expect(parseInt(cellValue)).toBe(expectedResult[expectedResultIndex++]);
     };
 
-    spreadsheet(readline, output);
+    codinggame_1d_spreadsheet.run(input, output);
 
     expect(expectedResultIndex).toBe(expectedResult.length);
 };
