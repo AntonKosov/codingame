@@ -2,32 +2,38 @@ package main
 
 import (
 	"fmt"
-	"os"
 )
 
 func main() {
 	for {
-		fmt.Fprintln(os.Stderr, "Debug messages...")
-		// x: x position of your pod
-		// y: y position of your pod
 		// nextCheckpointX: x position of the next check point
 		// nextCheckpointY: y position of the next check point
-		var x, y, nextCheckpointX, nextCheckpointY int
-		fmt.Scan(&x, &y, &nextCheckpointX, &nextCheckpointY)
+		// nextCheckpointDist: distance to the next checkpoint
+		// nextCheckpointAngle: angle between your pod orientation and the direction of the next checkpoint
+		var x, y, nextCheckpointX, nextCheckpointY, nextCheckpointDist, nextCheckpointAngle int
+		fmt.Scan(&x, &y, &nextCheckpointX, &nextCheckpointY, &nextCheckpointDist, &nextCheckpointAngle)
 
-		fmt.Fprintln(os.Stderr, "Debug messages...")
+		var opponentX, opponentY int
+		fmt.Scan(&opponentX, &opponentY)
+
 		// fmt.Fprintln(os.Stderr, "Debug messages...")
 
-		// Edit this line to output the target position
-		// and thrust (0 <= thrust <= 100)
+		// You have to output the target position
+		// followed by the power (0 <= thrust <= 100)
 		// i.e.: "x y thrust"
-		fmt.Printf("%d %d 80\n", nextCheckpointX, nextCheckpointY)
+		trust := trustMin
+		nextCheckpointAngle = abs(nextCheckpointAngle)
+		if nextCheckpointAngle < 90 {
+			trust = trustMax - trustMax*(abs(nextCheckpointAngle)/90)
+		}
+		fmt.Printf("%d %d %d\n", nextCheckpointX, nextCheckpointY, trust)
 	}
 }
 
 const (
-// trustMin  = 0
-// trustMax  = 100
+	trustMin = 0
+	trustMax = 100
+
 // mapWidth  = 1600
 // mapHeight = 900
 // checkpointRadius = 600
@@ -35,10 +41,18 @@ const (
 // turnTimeout = time.Microsecond * 75
 )
 
+func abs(v int) int {
+	if v >= 0 {
+		return v
+	}
+
+	return -v
+}
+
 // type vector2 struct {
 // 	x, y int
 // }
-//
+
 // type pod struct {
 // 	position vector2
 // }
