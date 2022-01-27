@@ -15,6 +15,7 @@ import (
 //   * If there are a lot of zombies, try moving by circle (taking into account the field size)
 //   * Don't consider saving humans which cannot be saved
 // * Collect more score
+// * Consider how many people left
 // * [Performance] Get rid of copying maps
 func main() {
 	ctx := context.Background()
@@ -273,15 +274,21 @@ timeout:
 	}
 	var bestDestination Vector
 	maxScore := -1
+	humansLeft := -1
 	for _, s := range states {
-		if maxScore < s.score {
-			maxScore = s.score
-			if s.initialTarget == nil {
-				fmt.Fprintln(os.Stderr, "Initial target is nil")
-				continue
-			}
-			bestDestination = *s.initialTarget
+		hl := len(s.humans)
+		if humansLeft > hl {
+			continue
+		} else if maxScore > s.score {
+			continue
 		}
+		// if s.initialTarget == nil {
+		// 	fmt.Fprintln(os.Stderr, "Initial target is nil")
+		// 	continue
+		// }
+		bestDestination = *s.initialTarget
+		maxScore = s.score
+		humansLeft = hl
 	}
 
 	return bestDestination
