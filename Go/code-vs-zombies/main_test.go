@@ -14,8 +14,8 @@ func TestMoveTo(t *testing.T) {
 }
 
 func TestSimpleFirstStep(t *testing.T) {
-	humans := VectorMap{NewVector(8250, 4500): struct{}{}}
-	zombies := VectorMap{NewVector(8250, 8999): struct{}{}}
+	humans := Humans{NewVector(8250, 4500): struct{}{}}
+	zombies := Zombies{NewVector(8250, 8999): 1}
 	state := NewState(NewVector(0, 0), humans, zombies)
 	destination := findOptimalDestination(context.Background(), state)
 	require.NotEqual(t, NewVector(0, 0), destination)

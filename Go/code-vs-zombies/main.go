@@ -9,10 +9,13 @@ import (
 )
 
 // TODOs:
-// 1. Hunt zombies even if the game is lose
-// 2. Reduce the number of variants
-// 3. Collect more score
-// 4. If there are winners, leave only the best
+// * [Test: Cross] Implement the detection of loosing all humans in the future
+// * [Low priority] Hunt zombies even if there is no chance to win
+// * Reduce the number of variants
+//   * If there are a lot of zombies, try moving by circle (taking into account the field size)
+//   * Don't consider saving humans which cannot be saved
+// * Collect more score
+// * [Performance] Get rid of copying maps
 func main() {
 	ctx := context.Background()
 	for {
@@ -27,7 +30,7 @@ func process(ctx context.Context) {
 
 	var humanCount int
 	fmt.Scan(&humanCount)
-	humans := make(VectorMap, humanCount)
+	humans := make(Humans, humanCount)
 	for i := 0; i < humanCount; i++ {
 		var humanId, humanX, humanY int
 		fmt.Scan(&humanId, &humanX, &humanY)
@@ -36,11 +39,11 @@ func process(ctx context.Context) {
 
 	var zombiesCount int
 	fmt.Scan(&zombiesCount)
-	zombies := make(VectorMap, zombiesCount)
+	zombies := make(Zombies, zombiesCount)
 	for i := 0; i < zombiesCount; i++ {
 		var zombieId, zombieX, zombieY, zombieXNext, zombieYNext int
 		fmt.Scan(&zombieId, &zombieX, &zombieY, &zombieXNext, &zombieYNext)
-		zombies[NewVector(zombieX, zombieY)] = struct{}{}
+		zombies[NewVector(zombieX, zombieY)]++
 	}
 
 	fmt.Fprintf(os.Stderr, "Player: %+v; humans: %v; zombies: %v\n", player, len(humans), len(zombies))
@@ -107,12 +110,22 @@ func moveTo(start, destination Vector, maxLen int) Vector {
 	return start.Add(offset)
 }
 
-type VectorMap map[Vector]struct{}
+type Humans map[Vector]struct{}
 
-func (vl VectorMap) Clone() VectorMap {
-	clone := make(VectorMap, len(vl))
+func (vl Humans) Clone() Humans {
+	clone := make(Humans, len(vl))
 	for v := range vl {
 		clone[v] = struct{}{}
+	}
+	return clone
+}
+
+type Zombies map[Vector]int
+
+func (z Zombies) Clone() Zombies {
+	clone := make(Zombies, len(z))
+	for z, c := range z {
+		clone[z] = c
 	}
 	return clone
 }
@@ -144,8 +157,8 @@ func init() {
 
 type State struct {
 	player  Vector
-	humans  VectorMap
-	zombies VectorMap
+	humans  Humans
+	zombies Zombies
 
 	initialTarget *Vector
 	score         int
@@ -153,7 +166,7 @@ type State struct {
 	// result        Result
 }
 
-func NewState(player Vector, humans, zombies VectorMap) State {
+func NewState(player Vector, humans Humans, zombies Zombies) State {
 	return State{
 		player:  player,
 		humans:  humans,
@@ -174,7 +187,7 @@ func (s *State) Clone() State {
 }
 
 func (s *State) moveZombies() {
-	moved := make(VectorMap, len(s.zombies))
+	moved := make(Zombies, len(s.zombies))
 	for z := range s.zombies {
 		closest := s.player
 		dist2 := z.Sub(closest).Len2()
@@ -186,7 +199,7 @@ func (s *State) moveZombies() {
 			}
 		}
 		nc := moveTo(z, closest, ZombieStep)
-		moved[nc] = struct{}{}
+		moved[nc]++
 	}
 	s.zombies = moved
 }
@@ -196,9 +209,11 @@ func (s *State) movePlayer(destination Vector) {
 }
 
 func (s *State) destroyZombies() int {
+	count := 0
 	destroyed := make([]Vector, 0, len(s.zombies))
-	for z := range s.zombies {
+	for z, c := range s.zombies {
 		if s.player.Sub(z).Len2() <= DestroyDistance2 {
+			count += c
 			destroyed = append(destroyed, z)
 		}
 	}
@@ -207,7 +222,7 @@ func (s *State) destroyZombies() int {
 	}
 
 	// bonus(count(killed zombies))*10*count(alive people)^2
-	return bonusScoreMul[len(destroyed)] * 10 * len(s.humans) * len(s.humans)
+	return bonusScoreMul[count] * 10 * len(s.humans) * len(s.humans)
 }
 
 func (s *State) killHumans() {
