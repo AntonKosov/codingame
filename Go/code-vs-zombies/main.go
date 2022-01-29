@@ -345,6 +345,7 @@ func init() {
 	}
 }
 
+// 79820
 func (s *State) possibleMovementsTowardCharacters() []Vector {
 	movements := make([]Vector, 0, len(s.humans)+len(s.zombies)+1)
 	movements = append(movements, s.player)
@@ -360,6 +361,7 @@ func (s *State) possibleMovementsTowardCharacters() []Vector {
 	return movements
 }
 
+// 69230
 func (s *State) possibleMovementsAround() []Vector {
 	movements := make([]Vector, 0, len(s.humans)+len(s.zombies)+1)
 	for h := range s.humans {
@@ -392,7 +394,8 @@ func (s *State) prepareMovements() {
 			survivedHumans[hPos] = struct{}{}
 		}
 	}
-	possibleMoves := s.possibleMovementsTowardCharacters()
+	// possibleMoves := s.possibleMovementsTowardCharacters()
+	possibleMoves := s.possibleMovementsAround()
 	for _, p := range possibleMoves {
 		addPoint(p)
 	}
