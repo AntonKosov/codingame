@@ -23,10 +23,24 @@ func runEmulation(t *testing.T, startState State, survivors, minScore int) {
 	require.GreaterOrEqual(t, score, minScore)
 }
 
-func TestMoveTo(t *testing.T) {
+func TestMoveTo1(t *testing.T) {
 	z := NewVector(100, 100)
 	p := moveTo(z, NewVector(600, 600), 400)
 	require.Equal(t, NewVector(382, 382), p)
+}
+
+func TestMoveTo2(t *testing.T) {
+	p := NewVector(2994, 3358)
+	target := NewVector(3208, 2381)
+	p = moveTo(p, target, PlayerMaxStep)
+	require.Equal(t, NewVector(3207, 2382), p)
+}
+
+func TestMoveTo3(t *testing.T) {
+	p := NewVector(8250, 8999)
+	target := NewVector(8250, 4500)
+	p = moveTo(p, target, ZombieStep)
+	require.Equal(t, NewVector(8250, 8999-ZombieStep), p)
 }
 
 func TestEarningScoreZeroZombies(t *testing.T) {
@@ -96,7 +110,7 @@ func TestEmulateTest2(t *testing.T) {
 	}
 	player := NewVector(0, 0)
 	state := NewState(player, humans, zombies)
-	runEmulation(t, state, 2, 50)
+	runEmulation(t, state, 2, 80)
 }
 
 func TestEmulateTest4(t *testing.T) {

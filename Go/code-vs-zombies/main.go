@@ -10,6 +10,8 @@ import (
 
 const Debug = false
 
+// const Debug = true
+
 // TODOs:
 // * Consider only those states where maximum humans are alive?
 // * [Test: Cross] Implement the detection of loosing all humans in the future
@@ -98,11 +100,19 @@ func (v Vector) Sub(av Vector) Vector {
 	return Vector{X: v.X - av.X, Y: v.Y - av.Y}
 }
 
-func (v Vector) Scale(f float32) Vector {
-	return Vector{
-		X: int(float32(v.X) * f),
-		Y: int(float32(v.Y) * f),
+func (v Vector) Scale(f float64) Vector {
+	const eps = 0.00000000001
+	ex := eps
+	if v.X < 0 {
+		ex *= -1
 	}
+	ey := eps
+	if v.Y < 0 {
+		ey *= -1
+	}
+	x := float64(v.X)*f + ex
+	y := float64(v.Y)*f + ey
+	return NewVector(int(x), int(y))
 }
 
 func (v Vector) Len() int {
@@ -113,13 +123,13 @@ func (v Vector) Len2() int {
 	return v.X*v.X + v.Y*v.Y
 }
 
-func moveTo(start, destination Vector, maxLen int) Vector {
+func moveTo(start, destination Vector, maxDistance int) Vector {
 	offset := destination.Sub(start)
-	if offset.Len2() <= maxLen*maxLen {
+	if offset.Len2() <= maxDistance*maxDistance {
 		return destination
 	}
 
-	f := float32(maxLen) / float32(offset.Len())
+	f := float64(maxDistance) / math.Sqrt(float64(offset.Len2()))
 	offset = offset.Scale(f)
 
 	return start.Add(offset)
@@ -345,33 +355,33 @@ func init() {
 	}
 }
 
-// 79820
-func (s *State) possibleMovementsTowardCharacters() []Vector {
-	movements := make([]Vector, 0, len(s.humans)+len(s.zombies)+1)
-	movements = append(movements, s.player)
+func (s *State) possibleMovementsTowardCharacters() map[Vector]struct{} {
+	movements := make(map[Vector]struct{}, len(s.humans)+len(s.zombies)+1)
+	movements[s.player] = struct{}{}
 	for h := range s.humans {
 		np := moveTo(s.player, h, PlayerMaxStep)
-		movements = append(movements, np)
+		movements[np] = struct{}{}
 	}
 	for z := range s.zombies {
 		np := moveTo(s.player, z, PlayerMaxStep)
 		// zombie won't be at this place next turn
-		movements = append(movements, np)
+		movements[np] = struct{}{}
 	}
 	return movements
 }
 
-// 69230
-func (s *State) possibleMovementsAround() []Vector {
-	movements := make([]Vector, 0, len(s.humans)+len(s.zombies)+1)
+func (s *State) possibleMovementsAround() map[Vector]struct{} {
+	// possibleMovements := make(map[Vector]struct{}, len(movements)+1)
+	possibleMovements := make(map[Vector]struct{}, len(s.humans)+len(movements)+1)
+	possibleMovements[s.player] = struct{}{}
 	for h := range s.humans {
 		np := moveTo(s.player, h, PlayerMaxStep)
-		movements = append(movements, np)
+		possibleMovements[np] = struct{}{}
 	}
 	for _, move := range movements {
-		movements = append(movements, s.player.Add(move))
+		possibleMovements[s.player.Add(move)] = struct{}{}
 	}
-	return movements
+	return possibleMovements
 }
 
 func (s *State) prepareMovements() {
@@ -396,7 +406,7 @@ func (s *State) prepareMovements() {
 	}
 	// possibleMoves := s.possibleMovementsTowardCharacters()
 	possibleMoves := s.possibleMovementsAround()
-	for _, p := range possibleMoves {
+	for p := range possibleMoves {
 		addPoint(p)
 	}
 
@@ -461,5 +471,27 @@ func Sqrt(v int) int {
 func (s *State) ValidateWithExpectedState(e *State) {
 	if s.player != e.player {
 		panic(fmt.Sprintf("Player position: e=%+v, a=%+v", e.player, s.player))
+	}
+
+	if len(s.humans) != len(e.humans) {
+		panic(fmt.Sprintf("Different number of humans: e=%v, a=%v", len(s.humans), len(e.humans)))
+	}
+
+	for h := range s.humans {
+		if _, ok := e.humans[h]; !ok {
+			panic(fmt.Sprintf("Human not found at %+v", h))
+		}
+	}
+
+	if len(s.zombies) != len(e.zombies) {
+		panic(fmt.Sprintf("Different number of zombies: e=%v, a=%v", len(s.zombies), len(e.zombies)))
+	}
+
+	for z := range s.zombies {
+		if _, ok := e.zombies[z]; !ok {
+			panic(fmt.Sprintf("Zombie not found at %+v, actual zombies: %+v, expected zombies: %+v",
+				z, s.zombies, e.zombies,
+			))
+		}
 	}
 }
